@@ -1,13 +1,13 @@
 <!--
 title: Serviced accommodation and short-let management
-description: Short-let and Airbnb management with a local team and a central pricing desk. Free long-let vs short-let appraisal with the legal check for your address, including London's 90-night rule. 18% of net booking revenue, no VAT.
+description: Short-let and Airbnb management with a local team and a central pricing desk. Free long-let vs short-let appraisal with the rates, register and safety check for your address. 18% of net booking revenue, no VAT.
 nav: sa
 -->
 <section class="band-dark page-head">
   <div class="wrap">
     <span class="eyebrow">Serviced accommodation · New for 2026</span>
     <h1>Short-let management by a team that also does long lets, so you get the honest answer</h1>
-    <p class="lede">We run your flat or cottage on Airbnb, Booking.com and direct bookings: pricing from head office, guests and cleaning through your local team, compliance, statements. And because we manage long lets too, our appraisal tells you which model earns more at your address, and whether a short let is allowed there at all: the 90-night rule in London, the 182-night test and visitor register in Wales, the planning position wherever you are.</p>
+    <p class="lede">We run your flat or cottage on Airbnb, Booking.com and direct bookings: pricing from head office, guests and cleaning through your local team, compliance, statements. And because we manage long lets too, our appraisal tells you which model earns more at your address, and what it takes to run it well there: the business-rates tests, the Wales visitor register, the safety checks and insurance that covers paying guests.</p>
     <div class="cta-row">
       <a class="btn btn-primary btn-lg" href="#appraisal">Get a free short-let appraisal</a>
       <a class="btn btn-ghost btn-lg" href="#calc">Try the quick calculator</a>
@@ -68,7 +68,7 @@ nav: sa
     <div>
       <span class="eyebrow">Flex Switch</span>
       <h2>If the numbers change, the model changes. Your agent doesn't.</h2>
-      <p>Short-let demand is seasonal and the rules keep moving. A Gower cottage that works brilliantly on Airbnb from May to September may earn more as a long let in a flat winter. A London flat hits its 90 nights by August and needs a let of 90 nights or more for the rest of the year. A council brings in a planning condition that changes the maths. With us, any short let can move to a longer let or a tenancy, or back, without re-onboarding, new paperwork or a new agent. Co-hosts can't offer that because they don't do long lets; high-street agents can't because they don't do short lets.</p>
+      <p>Short-let demand is seasonal and the rules keep moving. A Gower cottage that works brilliantly on Airbnb from May to September may earn more as a long let in a flat winter. A London flat full of weekend guests all summer may earn more on month-long contractor and relocation stays through the winter. A council changes a rule and the maths move again. With us, any short let can move to a longer let or a tenancy, or back, without re-onboarding, new paperwork or a new agent. Co-hosts can't offer that because they don't do long lets; high-street agents can't because they don't do short lets.</p>
     </div>
     <div>
       <div class="card">
@@ -83,11 +83,11 @@ nav: sa
 <section class="band">
   <div class="wrap">
     <div class="sec-head">
-      <span class="eyebrow">Is it allowed?</span>
+      <span class="eyebrow">Before we list</span>
       <h2>The things we check before anyone lists a property</h2>
     </div>
     <div class="grid grid-4">
-      <div class="card"><h3>London: the 90-night rule</h3><p>A whole home in Greater London can be let short-term for 90 nights a year without planning permission. Beyond that it needs consent, which boroughs rarely give. Our London offer runs the 90 nights of short stays, then switches to lets of 90 nights or more (contractors, relocations, students) or a tenancy. Shorter "mid-term" stays still count towards the 90.</p></div>
+      <div class="card"><h3>Your year-round income plan</h3><p>Before we list, we build your calendar for the year: peak-season short stays priced by the week, month-plus contractor and relocation lets for the quieter months, and a tenancy if that wins outright. You see the plan and the net figures before you sign, and Flex Switch means the property can move between them without changing agent.</p></div>
       <div class="card"><h3>Planning use class</h3><p>Wales has a separate use class for short-term lets (C6), and councils can require planning permission through an Article 4 direction. England is consulting on the same. Your lease or mortgage may also forbid nightly letting. We check your address.</p></div>
       <div class="card"><h3>Business rates tests</h3><p>Wales: available 252 nights and let 182 to be rated as a business rather than paying council tax (with a second-home premium if you miss). England: available 140 nights and let 70. We track it and tell you in good time if you're short.</p></div>
       <div class="card"><h3>Registers and levies</h3><p>Wales: the visitor accommodation register opened on 1 October 2026; existing providers must register by 31 March 2027, new ones before their first guest, and councils can add a visitor levy from April 2027. England: a national short-let register is on the way. We handle registration and the returns either side of the border.</p></div>
@@ -101,7 +101,7 @@ nav: sa
     <div class="sec-head">
       <span class="eyebrow">Quick calculator</span>
       <h2>Rough numbers in ten seconds. Real numbers in the appraisal.</h2>
-      <p class="lede">Change the figures to match your property. The short-let line deducts 15% platform fees, your bills, cleaning at £45 a turnover and our 18% management; the long-let line deducts our capped 12% fee. Tick the London box to cap the year at 90 nights.</p>
+      <p class="lede">Change the figures to match your property. The short-let line deducts 15% platform fees, your bills, cleaning at £45 a turnover and our 18% management; the long-let line deducts our capped 12% fee. Occupancy moves the answer more than anything else, so try a few figures.</p>
     </div>
     <form id="saCalc" class="form">
       <div class="form-grid">
@@ -109,7 +109,6 @@ nav: sa
         <div class="field"><label for="nightly">Average nightly rate (£)</label><input id="nightly" name="nightly" type="number" min="0" step="5" value="135"></div>
         <div class="field"><label for="occ">Occupancy (%)</label><input id="occ" name="occ" type="number" min="0" max="100" step="1" value="68"></div>
         <div class="field"><label for="bills">Bills as a short let (£ per month: energy, water, broadband, council tax or rates)</label><input id="bills" name="bills" type="number" min="0" step="10" value="260"></div>
-        <div class="field full radio-row"><label><input id="nightcap" name="nightcap" type="checkbox"> Whole home in Greater London (90-night cap applies)</label></div>
       </div>
       <div id="saCalcOut" class="mt-2" aria-live="polite"></div>
       <p class="form-note">Illustrative only. The appraisal uses real Swansea booking data for comparable properties and your actual costs.</p>
@@ -122,7 +121,7 @@ nav: sa
     <div>
       <span class="eyebrow">Free short-let appraisal</span>
       <h2>Tell us the address. We'll tell you the truth.</h2>
-      <p>Within two working days you'll get a written appraisal: projected long-let rent, projected short-let revenue by season from comparable local listings, your net owner income under each, and the planning, rates, 90-night and register position for your address. Your local team delivers it; head office builds it.</p>
+      <p>Within two working days you'll get a written appraisal: projected long-let rent, projected short-let revenue by season from comparable local listings, your net owner income under each, and the planning, rates, register and insurance position for your address. Your local team delivers it; head office builds it.</p>
       <p class="muted">No obligation. If a long let is the better answer we'll say so, because we're happy to manage that too.</p>
     </div>
     <div>

@@ -1,6 +1,6 @@
 # Hello New Home: go-live steps
 
-Written 19 October 2026. Each step says who does it and exactly what to do.
+Written 19 October 2026, updated the same evening. Each step says who does it and exactly what to do. Steps 1 to 3 and 7 are done; the site is live at https://hellonewhome.co.uk.
 
 ## 1. GitHub (you: 1 minute, then me)
 
@@ -11,7 +11,7 @@ Written 19 October 2026. Each step says who does it and exactly what to do.
 ## 2. Render (you: 10 minutes)
 
 1. https://dashboard.render.com → New → Blueprint.
-2. Connect GitHub if asked, pick `Martoon196/hellonewhome-hq`, branch `main`. Render reads `hq/render.yaml`.
+2. Connect GitHub if asked, pick `Martoon196/hellonewhome-hq`, branch `main`. Render reads `render.yaml` at the repository root.
 3. It asks for `ADMIN_PASSWORD`: choose a strong one and keep it (this is the head-office admin login).
 4. Apply. First deploy takes 3 to 5 minutes. The service URL looks like `https://hellonewhome-hq.onrender.com`.
 5. Open `https://hellonewhome-hq.onrender.com/admin`, log in as `lettings@hellonewhome.co.uk` with that password. You will be asked to change it once.
@@ -27,7 +27,14 @@ Cost: Starter web service plus a 1 GB disk, the same plan PropertyPredator runs 
 
 ## 4. Partners (you: send me the details, or type them into Admin → Partners)
 
-For each of Durham, Andover and London, I need:
+Done so far (both seeded as active Local Partners; the live site picks them up on the next deploy):
+
+| Area | Partner | Covers | Status |
+|---|---|---|---|
+| Somerset | Martin Howard, 07510 243096, martin.howard1984@gmail.com | TA and BA postcodes plus the Somerset BS districts (BS20 to BS29, BS39 to BS41, BS48, BS49) | Active |
+| London | Ina Gutowska, 07775 801284, gutowskaewelina@gmail.com | Every London postcode (E, EC, N, NW, SE, SW, W, WC, BR, CR, HA, IG, RM, SM, UB and the London DA, EN, KT and TW districts) | Active, all of London until a second London partner arrives |
+
+Still needed, for Durham and Andover:
 
 ```
 Area:         Durham
@@ -39,9 +46,9 @@ Two-line bio: (where they live, what they do, why landlords should trust them)
 Photo:        (optional now; they can upload it in the portal)
 ```
 
-What happens next: Admin → Partners → their record → "Create login" → copy the one-time password to them on WhatsApp. They log in at `/partners/login`, set their own password, and their area page, flyers and posts carry their name from that moment.
+What happens next, for every partner including Martin and Ina: Admin → Partners → their record → "Create login" → copy the one-time password to them on WhatsApp. They log in at `/partners/login`, set their own password, and their area page, flyers and posts carry their name from that moment.
 
-London is set to Zone 1 South East (SE, BR and Bexley DA postcodes) as a starting point. Tell me if the first London partner lives elsewhere and I'll move the zone.
+When a second London partner arrives, narrow Ina's zone in Admin → Areas → London (postcodes field) and add the new area; the territory checker flags any overlap.
 
 ## 5. Resources (you, in Admin → Resources)
 
@@ -53,9 +60,13 @@ Fill in: Rent Smart Wales licence number, client money protection scheme and mem
 
 ## 7. Fees (you: one decision)
 
-The fee sheet on the site (Full Management 12% capped at £150, Tenant Find £495, set-up £295, rent guarantee add-on £25, HMO 15% and £249 room let-only, SA Launch £495, Full SA 18%, Co-Host 12%, no VAT) is my researched recommendation. Reply "fees confirmed" or send changes. Then tick "Fee sheet confirmed" in Admin → Settings and the draft strip comes off every flyer.
+Confirmed 19 October 2026: Full Management 12% capped at £150, Tenant Find £495, set-up £295, rent guarantee add-on £25, HMO 15% and £249 room let-only, SA Launch £495, Full SA 18%, Co-Host 12%, no VAT. `FEES_CONFIRMED=1` in `render.yaml` marks the sheet confirmed on every boot, so the draft strip is off every flyer and post without an admin click. To put the hold notice back (a fee change in progress), remove that variable in Render → Environment and untick "Fee sheet confirmed" in Admin → Settings.
 
-## 8. Two external checks (you: two emails, drafts below)
+## 8. Ordris (your agency management system)
+
+Contracts, tenancies, inspections and statements stay in Ordris; this platform holds the website, leads, area pages, partner logins and the marketing kit. Partners get an "Ordris" link in their portal sidebar, an "Open Ordris" panel on their dashboard and an Ordris entry in Resources, all pointing at the link in Admin → Settings → Systems (set to https://ordris.io; change it to your account's login page if Ordris gives you one). Create each partner's Ordris user inside Ordris itself and send them that login separately; Ordris has no public API, so the two logins are not merged. Add Ordris how-to guides as links in Admin → Resources so the portal is the one place partners start from.
+
+## 9. One external check (you: one email, draft below)
 
 **To your redress scheme and your client money protection scheme:**
 
@@ -63,11 +74,7 @@ The fee sheet on the site (Full Management 12% capped at £150, Tenant Find £49
 >
 > Hello New Home 2 Limited (company no. 13752357), trading as Hello New Home, membership [number]. We are a letting and property management agent based in Swansea. We are opening in England (County Durham, Test Valley and South East London) with self-employed local representatives who carry out viewings, inspections and check-ins under our brand. All tenancy agreements, client money, referencing and Right to Rent checks are handled by our head office; representatives never hold client money or sign agreements. Please confirm in writing that (1) our membership covers lettings and management activity in England as well as Wales, and (2) the arrangement with self-employed representatives is within the scope of our membership, and whether each area should be registered as a branch. Thank you.
 
-**To a planning solicitor (London):**
-
-> Subject: Short-let wording for a London lettings page
->
-> We manage short lets in Greater London. Our website says: "Whole-home short lets in Greater London are limited to 90 nights a year without planning permission, and any stay under 90 consecutive nights counts towards it. After the 90 nights, the property moves to a let of 90 nights or more, or a tenancy." Please confirm this is an accurate statement of section 25 of the Greater London Council (General Powers) Act 1973 as amended by section 44 of the Deregulation Act 2015, and flag anything we should add or remove before the page goes live.
+The planning-solicitor check is no longer needed: the website and the partner kit do not discuss London's short-let planning rule (your decision, 19 October 2026).
 
 ## After go-live
 

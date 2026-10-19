@@ -19,7 +19,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 ADMIN_PASSWORD=choose-one ./run.sh          # http://127.0.0.1:8010
 ```
 
-First boot creates the database in `hq/data/`, seeds the four areas (Swansea active, Durham/Andover/London "opening soon"), placeholder partners, the resource library index and the admin account (`ADMIN_EMAIL`, default `admin@hellonewhome.co.uk`). If `ADMIN_PASSWORD` is not set, a password is generated and printed once in the console and the admin must replace it on first login; on Render always set `ADMIN_PASSWORD`, so nothing is ever written to the retained service logs.
+First boot creates the database in `hq/data/`, seeds the five areas (Swansea, Somerset and London active with their partners; Durham and Andover "opening soon" with placeholder partners), the resource library index and the admin account (`ADMIN_EMAIL`, default `admin@hellonewhome.co.uk`). If `ADMIN_PASSWORD` is not set, a password is generated and printed once in the console and the admin must replace it on first login; on Render always set `ADMIN_PASSWORD`, so nothing is ever written to the retained service logs.
 
 Tests: `.venv/bin/python -m pytest -q`
 
@@ -34,23 +34,25 @@ Tests: `.venv/bin/python -m pytest -q`
 
 Optional: set `DATABASE_URL` to a Render Postgres instance for a managed database (the app switches automatically). Keep the disk for uploads either way.
 
+`FEES_CONFIRMED=1` (set in `render.yaml`) marks the fee sheet as confirmed on every boot, which clears the draft strip and hold notice on the partners' marketing kit; remove it to control the flag from Admin → Settings alone.
+
 Optional email notifications for leads: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `LEAD_NOTIFY_TO`. Without them, leads still land in the admin panel and the partner portal; nothing is lost.
 
 ## Day-one checklist in the admin panel
 
-1. **Settings**: licence numbers, client money and redress schemes, ICO number, registered office. The footer and fees page read these live.
-2. **Partners**: add each mentee, attach them to their area, click "Create login". Copy the one-time password to them on WhatsApp. They are forced to set their own password on first login.
+1. **Settings**: licence numbers, client money and redress schemes, ICO number, registered office. The footer and fees page read these live. "Systems" holds the Ordris link shown to partners.
+2. **Partners**: add each mentee (Martin Howard for Somerset and Ina Gutowska for London are seeded), attach them to their area, click "Create login". Copy the one-time password to them on WhatsApp. They are forced to set their own password on first login.
 3. **Areas**: check the postcode districts (the territory checker flags overlaps), set the partner, switch status from "opening soon" to "active". The area pages, the postcode finder, the footer and the sitemap update instantly.
 4. **Resources**: replace the placeholder items with your real contracts, software guides, scripts and training (upload files or paste links). Restrict a resource to an area or a country where it only applies there.
 5. **Announcements**: the first message partners see on their dashboard.
 
 ## How a partner uses it
 
-Dashboard (leads, SLA breaches, announcements) → Leads (WhatsApp the lead in one tap, update status, notes) → Marketing kit (flyers and letters rendered with their name and number, print to PDF; Facebook group posts for their patch with copy buttons; square, story and cover graphics as PNG; Google Business Profile copy for their area) → Resources → My area (postcodes, live pages, request a change) → Profile (bio, photo, WhatsApp; this is what landlords see on the area page).
+Dashboard (leads, SLA breaches, announcements, the Ordris link) → Leads (WhatsApp the lead in one tap, update status, notes) → Marketing kit (flyers and letters rendered with their name and number, print to PDF; Facebook group posts for their patch with copy buttons; square, story and cover graphics as PNG; Google Business Profile copy for their area) → Resources → My area (postcodes, live pages, request a change) → Profile (bio, photo, WhatsApp; this is what landlords see on the area page).
 
 ## Content files
 
-- `content/areas-seed.json`: the first four areas (used only on first boot; edit areas in the admin afterwards).
+- `content/areas-seed.json`: the seeded areas and their partners. New slugs are inserted on boot. An existing row is refreshed in place only when its `revision` number is higher than the one recorded in the `seed_revisions` setting: the area's facts, status, bespoke content and, if the live partner is still the seeded placeholder (or the same email address), the partner's details. Bump `revision` to ship a change to a live area; leave it alone and head-office edits in the admin survive every deploy.
 - `content/areas/{slug}.json`: bespoke SEO copy per area (hub, lettings, short-lets, neighbourhoods, FAQs). Loaded into the area on first seed; editable in the admin as JSON.
 - `content/area-content-template.json`: tokenised fallback copy so a brand-new area has sensible pages before bespoke copy is written.
 - `content/marketing-templates.json`: flyers, Facebook posts, graphics, Google Business Profile copy, letters and scripts with `{{tokens}}`; rendered per partner in the portal. Edit the file and redeploy, or call `services.content.reload()`.

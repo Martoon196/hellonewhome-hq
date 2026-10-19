@@ -7,6 +7,7 @@
 <a href="/partners/leads"{% if section == "leads" %} class="is-active"{% endif %}>Leads</a>
 <a href="/partners/kit"{% if section == "kit" %} class="is-active"{% endif %}>Marketing kit</a>
 <a href="/partners/resources"{% if section == "resources" %} class="is-active"{% endif %}>Resources</a>
+{% if s.ordris_url %}<a href="{{ s.ordris_url }}" target="_blank" rel="noopener" class="is-external">Ordris ↗</a>{% endif %}
 <a href="/partners/area"{% if section == "area" %} class="is-active"{% endif %}>My area</a>
 <a href="/partners/profile"{% if section == "profile" %} class="is-active"{% endif %}>My profile</a>
 <a href="/partners/password"{% if section == "password" %} class="is-active"{% endif %}>Password</a>

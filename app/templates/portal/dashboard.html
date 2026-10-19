@@ -49,6 +49,11 @@
     {% for n in announcements %}
     <article class="note{% if n.pinned %} note-pinned{% endif %}"><h3>{{ n.title }}</h3><p>{{ n.body }}</p><p class="small muted">{{ n.created_at | uk("%d %b %Y") }}</p></article>
     {% else %}<p class="muted">No announcements yet.</p>{% endfor %}
+    {% if s.ordris_url %}
+    <h2 class="mt-2">Your systems</h2>
+    <p class="mb-0">{{ s.ordris_label }}. Log in with the account head office set up for you. This portal holds your leads, area pages and marketing kit.</p>
+    <p><a class="btn btn-primary btn-sm" href="{{ s.ordris_url }}" target="_blank" rel="noopener">Open Ordris ↗</a></p>
+    {% endif %}
     <h2 class="mt-2">Quick links</h2>
     <ul class="tick-list">
       <li><a href="/partners/kit">Marketing kit: flyers, posts, graphics, Google profile</a></li>

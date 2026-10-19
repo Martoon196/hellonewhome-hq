@@ -70,6 +70,56 @@ def test_environment_is_isolated():
     assert config.SMTP_HOST == ""
 
 
+def test_seed_revision_refreshes_an_existing_area_and_its_placeholder_partner(client, monkeypatch):
+    """A later deploy can widen an area or attach the real partner by bumping the row's "revision"; the same
+    revision is applied once, so head-office edits made afterwards survive every boot."""
+    from app import seed as seed_module
+    from app.services import content, settings as site_settings
+    rows = content.areas_seed()
+    original = next(r for r in rows if r["slug"] == "durham")
+    bumped = dict(original, revision=int(original.get("revision") or 0) + 1, name="County Durham", status="active",
+                  covers="All of County Durham", postcodes=["DH", "DL"],
+                  partner="Test Person", partner_first="Test", partner_email="Test.Person@example.com",
+                  partner_phone="07700 900123", whatsapp="447700900123", whatsapp_display="07700 900123",
+                  partner_status="active", partner_bio="A real bio.")
+    monkeypatch.setattr(content, "areas_seed", lambda: [bumped if r["slug"] == "durham" else r for r in rows])
+    area_keys = ("name", "status", "covers", "postcodes", "content")
+    partner_keys = ("name", "first_name", "email", "phone", "status", "tier", "whatsapp", "whatsapp_display", "bio")
+    with session() as db:
+        before = db.query(Area).filter(Area.slug == "durham").one()
+        partner_id = before.partner_id
+        assert before.partner.name.endswith("(to be appointed)") and before.status == "coming"
+        saved_area = {k: getattr(before, k) for k in area_keys}
+        saved_partner = {k: getattr(before.partner, k) for k in partner_keys}
+        saved_revisions = site_settings.get(db, "seed_revisions")
+    try:
+        assert seed_module.seed(quiet=True)["refreshed"] == 1
+        with session() as db:
+            area = db.query(Area).filter(Area.slug == "durham").one()
+            assert area.name == "County Durham" and area.status == "active" and area.postcodes == ["DH", "DL"]
+            assert area.partner_id == partner_id and area.partner.name == "Test Person"
+            assert area.partner.email == "test.person@example.com" and area.partner.status == "active"
+            assert area.partner.whatsapp == "447700900123" and area.partner.bio == "A real bio."
+            assert site_settings.get(db, "seed_revisions")["durham"] == bumped["revision"]
+            area.name = "Durham (edited by head office)"
+            db.add(area)
+            db.commit()
+        assert seed_module.seed(quiet=True)["refreshed"] == 0
+        with session() as db:
+            assert db.query(Area).filter(Area.slug == "durham").one().name == "Durham (edited by head office)"
+    finally:
+        with session() as db:
+            area = db.query(Area).filter(Area.slug == "durham").one()
+            for k, v in saved_area.items():
+                setattr(area, k, v)
+            for k, v in saved_partner.items():
+                setattr(area.partner, k, v)
+            db.add(area)
+            db.add(area.partner)
+            site_settings.put(db, "seed_revisions", saved_revisions or {})
+            db.commit()
+
+
 def test_seed_created_admin_and_areas(client):
     with session() as db:
         admin = db.query(User).filter(User.email == ADMIN_EMAIL).one()

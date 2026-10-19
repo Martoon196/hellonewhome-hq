@@ -282,33 +282,33 @@ def _js_locate(areas: list[dict], postcodes: list[str]) -> list[str | None]:
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is needed to run site.js")
 def test_browser_and_server_route_nested_districts_the_same_way(client, db):
-    """London lists the whole area KT (sorted first); Kingston lists KT1 (sorted later). Both rules must send
-    KT1 to Kingston and KT2 to London, whatever the list order."""
+    """London lists the whole area PL (sorted first); Plymouth lists PL1 (sorted later). Both rules must send
+    PL1 to Plymouth and PL2 to London, whatever the list order."""
     with session() as s:
         london = s.query(Area).filter(Area.slug == "london").one()
-        london.postcodes = list(london.postcodes) + ["KT"]      # a whole-area code, alongside the seeded SE/BR/DA districts
+        london.postcodes = list(london.postcodes) + ["PL"]      # a whole-area code, alongside the seeded London codes
         s.add(london)
-        s.add(Area(slug="kingston-test", name="Kingston test", region="england", role="partner", status="active",
-                   postcodes=["KT1"], sort=900))
+        s.add(Area(slug="plymouth-test", name="Plymouth test", region="england", role="partner", status="active",
+                   postcodes=["PL1"], sort=900))
         s.commit()
     db.expire_all()
     try:
-        assert "KT" in db.query(Area).filter(Area.slug == "london").one().postcodes
-        cases = ["KT1 1AA", "KT2 5BB", "SE1 7PB", "TS1 2AB", "EH1 1YZ", "nonsense"]
+        assert "PL" in db.query(Area).filter(Area.slug == "london").one().postcodes
+        cases = ["PL1 1AA", "PL2 5BB", "SE1 7PB", "TS1 2AB", "EH1 1YZ", "nonsense"]
         server = [loc.area.slug if loc and loc.area else None for loc in (locate(db, pc) for pc in cases)]
-        assert server[0] == "kingston-test" and server[1] == "london"
+        assert server[0] == "plymouth-test" and server[1] == "london"
         areas = client.get("/api/areas").json()
-        assert [a["slug"] for a in areas].index("london") < [a["slug"] for a in areas].index("kingston-test")
+        assert [a["slug"] for a in areas].index("london") < [a["slug"] for a in areas].index("plymouth-test")
         assert _js_locate(areas, cases) == server
         # the lead API and the browser copy name the same partner for the same postcode
-        assert client.post("/api/lead", json={"name": "KT1 lead", "postcode": "KT1 1AA"}).json()["area"]["slug"] == "kingston-test"
+        assert client.post("/api/lead", json={"name": "PL1 lead", "postcode": "PL1 1AA"}).json()["area"]["slug"] == "plymouth-test"
     finally:
         with session() as s:
-            kt = s.query(Area).filter(Area.slug == "kingston-test").one()
+            kt = s.query(Area).filter(Area.slug == "plymouth-test").one()
             s.query(Lead).filter(Lead.area_id == kt.id).delete()
             s.delete(kt)
             london = s.query(Area).filter(Area.slug == "london").one()
-            london.postcodes = [c for c in london.postcodes if c != "KT"]
+            london.postcodes = [c for c in london.postcodes if c != "PL"]
             s.add(london)
             s.commit()
 
@@ -317,21 +317,21 @@ def test_admin_is_told_when_a_district_nests_inside_another_areas_whole_area(adm
     from tests.test_app import area_form, flash_of
     with session() as s:
         london = s.query(Area).filter(Area.slug == "london").one()
-        london.postcodes = list(london.postcodes) + ["KT"]
+        london.postcodes = list(london.postcodes) + ["PL"]
         s.add(london)
         s.commit()
-    r = admin_client.post("/admin/areas/new", data=area_form(name="Kingston nest", postcodes="KT1, KT3", status="coming", sort="910"))
+    r = admin_client.post("/admin/areas/new", data=area_form(name="Plymouth nest", postcodes="PL1, PL3", status="coming", sort="910"))
     assert r.status_code == 303, r.text
     flash = flash_of(r.headers["location"])["ok"]
-    assert flash.startswith("Area saved.") and "KT1 sits inside the whole area KT listed for South East London" in flash
+    assert flash.startswith("Area saved.") and "PL1 sits inside the whole area PL listed for London" in flash
     area_id = int(r.headers["location"].split("/")[3].split("?")[0])
-    r = admin_client.post(f"/admin/areas/{area_id}", data=area_form(name="Kingston nest", postcodes="KT1", status="coming", sort="910", action="view"))
-    assert r.status_code == 303 and "KT1 sits inside" in flash_of(r.headers["location"])["ok"]
+    r = admin_client.post(f"/admin/areas/{area_id}", data=area_form(name="Plymouth nest", postcodes="PL1", status="coming", sort="910", action="view"))
+    assert r.status_code == 303 and "PL1 sits inside" in flash_of(r.headers["location"])["ok"]
     with session() as s:
         london = s.query(Area).filter(Area.slug == "london").one()
-        london.postcodes = [c for c in london.postcodes if c != "KT"]
+        london.postcodes = [c for c in london.postcodes if c != "PL"]
         s.add(london)
-        nest = s.query(Area).filter(Area.slug.like("kingston-nest%")).first()
+        nest = s.query(Area).filter(Area.slug.like("plymouth-nest%")).first()
         if nest:
             s.delete(nest)
         s.commit()
@@ -366,10 +366,13 @@ def test_bad_content_json_is_rejected_and_legacy_bad_content_renders(admin_clien
 
 # ---- medium: fees_confirmed can be set, which clears the kit hold notice -----
 def test_fees_confirmed_setting_clears_kit_notice(admin_client, partner_a, partner_a_client):
+    from app.services import settings as site_settings
+    with session() as db:                      # the default is now confirmed; start this test from the hold state
+        site_settings.put(db, "fees_confirmed", False)
+        db.commit()
     page = admin_client.get("/admin/settings")
     assert page.status_code == 200 and 'name="fees_confirmed"' in page.text and "Fee sheet confirmed" in page.text
     assert "hold the fee-bearing items" in partner_a_client.get("/partners/kit", params={"area": partner_a.slug}).text
-    from app.services import settings as site_settings
     with session() as db:
         current = site_settings.get_all(db)
     form = {}

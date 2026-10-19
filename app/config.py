@@ -27,6 +27,9 @@ else:
 BASE_URL = os.environ.get("BASE_URL", "https://hellonewhome.co.uk").rstrip("/")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@hellonewhome.co.uk")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")      # empty => generated and printed at first seed
+# FEES_CONFIRMED=1 marks the fee sheet as signed off on every boot (clears the hold notice on the partners' kit)
+# without an admin click; leave it unset to manage the flag from Admin -> Settings alone.
+FEES_CONFIRMED = os.environ.get("FEES_CONFIRMED", "").strip().lower() in ("1", "true", "yes")
 SESSION_COOKIE = "hnh_session"
 SESSION_MAX_AGE = int(os.environ.get("SESSION_MAX_AGE", 60 * 60 * 24 * 14))   # 14 days
 SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "1" if BASE_URL.startswith("https") else "0") == "1"

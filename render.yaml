@@ -27,3 +27,5 @@ services:
         sync: false
       - key: SECURE_COOKIES
         value: "1"
+      - key: FEES_CONFIRMED
+        value: "1"

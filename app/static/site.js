@@ -253,8 +253,7 @@
       var rent = parseFloat(calc.rent.value) || 0;
       var nightly = parseFloat(calc.nightly.value) || 0;
       var occ = (parseFloat(calc.occ.value) || 0) / 100;
-      var cap = calc.nightcap && calc.nightcap.checked ? 90 : 365;   // London 90-night rule
-      var nights = Math.min(365 * occ, cap);
+      var nights = 365 * occ;
       var gross = nightly * nights;
       var platform = gross * 0.15;
       var bills = 12 * (parseFloat(calc.bills.value) || 0);
@@ -267,7 +266,7 @@
       out.innerHTML =
         '<div class="stats">' +
         '<div class="stat"><strong>' + fmt(llOwner / 12) + '</strong><span>per month as a long let, after our capped fee</span></div>' +
-        '<div class="stat"><strong>' + fmt(saOwner / 12) + '</strong><span>per month as a short let, after platform fees, bills, cleaning and management' + (cap === 90 ? ' (90-night cap)' : '') + '</span></div>' +
+        '<div class="stat"><strong>' + fmt(saOwner / 12) + '</strong><span>per month as a short let, after platform fees, bills, cleaning and management</span></div>' +
         '<div class="stat"><strong>' + (saOwner > llOwner ? "+" : "") + fmt((saOwner - llOwner) / 12) + '</strong><span>difference per month (' + Math.round(nights) + ' nights let)</span></div>' +
         '</div>';
     };

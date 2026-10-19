@@ -24,8 +24,11 @@ DEFAULTS: dict[str, object] = {
     "instagram_url": "https://www.instagram.com/hellonewhome/",
     "lead_sla_hq_hours": 24,
     "lead_sla_partner_hours": 4,
-    # Set by the founder once the fee sheet is signed off; until then the marketing kit carries a hold notice.
-    "fees_confirmed": False,
+    # Agency management system (contracts, tenancies, inspections, statements). Linked from the partner portal.
+    "ordris_url": "https://ordris.io",
+    "ordris_label": "Ordris: contracts, tenancies, inspections and statements",
+    # The founder signed the fee sheet off on 19 October 2026. While False the marketing kit carries a hold notice.
+    "fees_confirmed": True,
     "fees": {
         "tenant_find": "£495",
         "full_management_pct": "12%",

@@ -1206,6 +1206,7 @@ SETTING_GROUPS: list[tuple[str, list[str]]] = [
     ("Social", ["facebook_url", "instagram_url"]),
     ("Lead response targets", ["lead_sla_hq_hours", "lead_sla_partner_hours"]),
     ("Fees", ["fees", "fees_confirmed"]),
+    ("Systems", ["ordris_url", "ordris_label"]),
 ]
 SETTING_LABELS = {
     "hq_name": "Head office name", "hq_phone": "Phone", "hq_whatsapp": "WhatsApp number (digits starting 44)",
@@ -1216,6 +1217,8 @@ SETTING_LABELS = {
     "facebook_url": "Facebook page", "instagram_url": "Instagram profile",
     "lead_sla_hq_hours": "Head office response target (hours)", "lead_sla_partner_hours": "Partner response target (hours)",
     "fees_confirmed": "Fee sheet confirmed by the founder (clears the hold notice on the partners' marketing kit)",
+    "ordris_url": "Ordris login link (agency management system; shown in the partner portal, blank to hide)",
+    "ordris_label": "Ordris description shown to partners",
     "fees.tenant_find": "Tenant find", "fees.full_management_pct": "Full management (percentage)",
     "fees.full_management_cap": "Full management cap (per month)", "fees.setup": "Set-up fee",
     "fees.rent_guarantee_addon": "Rent guarantee add-on (per month)", "fees.hmo_pct": "HMO management (percentage)",
