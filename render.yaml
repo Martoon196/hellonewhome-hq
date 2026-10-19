@@ -3,7 +3,6 @@ services:
     name: hellonewhome-hq
     runtime: python
     plan: starter
-    rootDir: hq
     buildCommand: pip install -r requirements.txt
     # --proxy-headers / --forwarded-allow-ips: Render's proxy is the only hop, so request.client.host becomes
     # the visitor's address and the login and lead throttles are per visitor rather than per proxy.

@@ -25,7 +25,7 @@ Tests: `.venv/bin/python -m pytest -q`
 
 ## Deploy to Render (recommended)
 
-1. Push the `hq/` folder to a GitHub repo (private is fine).
+1. The repo is `Martoon196/hellonewhome-hq` (this folder is its root).
 2. Render → New → Blueprint → pick the repo. `render.yaml` defines the service (Starter plan, 1 GB persistent disk for the SQLite database and uploads).
 3. Set `ADMIN_PASSWORD` when prompted. Everything else is in the blueprint.
 4. Render → Settings → Custom domains → add `hellonewhome.co.uk` and `www.hellonewhome.co.uk`. Render shows a CNAME/A record.
