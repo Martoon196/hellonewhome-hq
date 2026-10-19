@@ -1,0 +1,51 @@
+{# Form field macros shared by the admin screens. #}
+{% macro styles() -%}
+<style>
+  .field-check label { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; }
+  .field-check input { width: auto; margin: 0; accent-color: var(--pink); }
+  .row-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .row-actions form { margin: 0; }
+  .page-title .actions .btn { text-decoration: none; }
+  .form h2 { font-size: 1.05rem; margin: 1.6rem 0 .8rem; padding-top: 1.2rem; border-top: 1px solid var(--line); }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: .8rem; }
+  .panel-head h2 { margin: 0; }
+  .nowrap { white-space: nowrap; }
+  .kv { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; font-size: .95rem; }
+  .kv dt { color: var(--muted); font-weight: 700; }
+  .kv dd { margin: 0; word-break: break-word; }
+</style>
+{%- endmacro %}
+
+{% macro text(name, label, value='', hint='', type='text', required=False, id=None, attrs='') -%}
+<div class="field">
+  <label for="{{ id or name }}">{{ label }}</label>
+  <input id="{{ id or name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"{% if required %} required{% endif %}{% if attrs %} {{ attrs|safe }}{% endif %}>
+  {% if hint %}<span class="hint">{{ hint }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro select(name, label, options, value='', hint='', id=None) -%}
+<div class="field">
+  <label for="{{ id or name }}">{{ label }}</label>
+  <select id="{{ id or name }}" name="{{ name }}">
+    {% for opt in options %}{% if opt is string %}{% set v = opt %}{% set l = opt %}{% else %}{% set v = opt[0] %}{% set l = opt[1] %}{% endif %}<option value="{{ v }}"{% if v|string == value|string %} selected{% endif %}>{{ l }}</option>
+    {% endfor %}
+  </select>
+  {% if hint %}<span class="hint">{{ hint }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro textarea(name, label, value='', hint='', rows=4, cls='', full=True) -%}
+<div class="field{% if full %} full{% endif %}">
+  <label for="{{ name }}">{{ label }}</label>
+  <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if cls %} class="{{ cls }}"{% endif %}>{{ value }}</textarea>
+  {% if hint %}<span class="hint">{{ hint }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro checkbox(name, label, checked=False, hint='') -%}
+<div class="field field-check">
+  <label><input type="checkbox" name="{{ name }}" value="1"{% if checked %} checked{% endif %}> {{ label }}</label>
+  {% if hint %}<span class="hint">{{ hint }}</span>{% endif %}
+</div>
+{%- endmacro %}

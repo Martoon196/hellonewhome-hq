@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = (item.title if item else "New announcement") ~ " | Admin" %}
+{% block head %}{{ f.styles() }}{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Announcements</span>
+  <h1>{{ item.title if item else "New announcement" }}</h1>
+  <div class="actions"><a class="btn btn-ghost btn-sm" href="/admin/announcements">All announcements</a></div>
+</div>
+<form method="post" action="{{ '/admin/announcements/' ~ item.id if item else '/admin/announcements/new' }}" class="form" style="max-width:760px">
+  <div class="form-grid">
+    {{ f.text("title", "Title", vals.title, required=True) }}
+    {{ f.textarea("body", "Message", vals.body, rows=6, hint="Plain text. Keep it short; partners read this on their dashboard.") }}
+    {{ f.checkbox("pinned", "Pin to the top of every partner dashboard", vals.pinned) }}
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-ghost" href="/admin/announcements">Cancel</a>
+  </div>
+</form>
+{% endblock %}

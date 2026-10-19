@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Territory checker | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .check { display: flex; gap: .6rem; flex-wrap: wrap; align-items: end; max-width: 520px; }
+  .check .field { flex: 1 1 200px; }
+  .check input { text-transform: uppercase; }
+  .result { border: 2px solid var(--line); border-radius: var(--radius); padding: 1rem 1.2rem; margin-top: 1rem; }
+  .result.is-hit { border-color: var(--green); }
+  .result.is-miss { border-color: var(--amber); }
+  .codes { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .code { background: var(--mist); border: 1px solid var(--line); border-radius: 999px; padding: .1rem .55rem; font-size: .82rem; font-weight: 700; }
+  .code.is-dup { background: #FDE8EE; border-color: #E0287A; color: #9B1C4B; }
+  .warn { border-left: 4px solid var(--amber); padding: .2rem 0 .2rem .9rem; margin: .6rem 0; font-size: .92rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title"><span class="eyebrow">Coverage</span><h1>Territory checker</h1></div>
+
+<section class="panel">
+  <h2>Where does a postcode go?</h2>
+  <form method="get" action="/admin/territory" class="check">
+    <div class="field"><label for="postcode">Postcode</label><input id="postcode" name="postcode" value="{{ postcode }}" placeholder="e.g. DH1 3RT" autofocus></div>
+    <button class="btn btn-primary" type="submit">Check</button>
+  </form>
+  {% if result %}
+    {% if result.error %}
+    <div class="result is-miss"><strong>{{ result.query }}</strong>: {{ result.error }}</div>
+    {% else %}
+    <div class="result {{ 'is-hit' if result.area else 'is-miss' }}">
+      <dl class="kv">
+        <dt>Outward code</dt><dd>{{ result.outward }} <span class="muted small">(area {{ result.letters }})</span></dd>
+        <dt>Region</dt><dd>{{ result.region|replace("-", " ")|capitalize }}</dd>
+        <dt>Routes to</dt><dd>{% if result.area %}<a href="/admin/areas/{{ result.area.id }}">{{ result.area.name }}</a> <span class="status status-{{ result.area.status }}">{{ result.area.status }}</span>{% else %}<strong>Not covered</strong>{% endif %}</dd>
+        <dt>Partner</dt><dd>{% if not result.area %}-{% elif result.area.is_hq %}Head office{% elif result.area.partner %}<a href="/admin/partners/{{ result.area.partner.id }}">{{ result.area.partner.name }}</a>{% else %}<span class="muted">No partner assigned</span>{% endif %}</dd>
+        <dt>Rule</dt><dd>{{ result.rule }}</dd>
+      </dl>
+      {% for d in result.dormant %}<p class="warn">{{ d.name }} lists this postcode but is {{ d.status }}, so it does not route leads.</p>{% endfor %}
+    </div>
+    {% endif %}
+  {% endif %}
+</section>
+
+<section class="panel mt-2">
+  <h2>Every area's postcodes</h2>
+  {% if duplicates %}
+  <p class="warn"><strong>{{ duplicates|length }} duplicate{{ "s" if duplicates|length != 1 else "" }}:</strong> {% for code, names in duplicates.items() %}{{ code }} ({{ names|join(" and ") }}){% if not loop.last %}; {% endif %}{% endfor %}. The area with the lower sort order wins, which is rarely what you want.</p>
+  {% else %}<p class="help">No duplicates across areas.</p>{% endif %}
+  {% for note in nested %}<p class="warn">{{ note }}</p>{% endfor %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>Area</th><th>Status</th><th>Sort</th><th>Postcodes</th></tr></thead>
+    <tbody>
+    {% for a in areas %}
+    <tr>
+      <td><a href="/admin/areas/{{ a.id }}">{{ a.name }}</a></td>
+      <td><span class="status status-{{ a.status }}">{{ a.status }}</span></td>
+      <td>{{ a.sort }}</td>
+      <td><div class="codes">{% for c in a.postcodes %}<span class="code{% if c in duplicates %} is-dup{% endif %}">{{ c }}</span>{% else %}<span class="muted">none</span>{% endfor %}</div></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

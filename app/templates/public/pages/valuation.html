@@ -1,0 +1,78 @@
+<!--
+title: Free rent review
+description: Get an honest rent figure and a compliance check for your property within one working day, from your local Hello New Home team. Free, no obligation.
+nav: landlords
+-->
+<section class="band-dark page-head">
+  <div class="wrap">
+    <span class="eyebrow">Free rent review</span>
+    <h1>An honest rent figure and a compliance check, within one working day</h1>
+    <p class="lede">Not an inflated number to win your instruction. A realistic rent from current local lets, what the property needs to be legally let where it is, and which of our services actually fits. Free, whatever you decide.</p>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap split" style="align-items:start">
+    <div>
+      <form class="form" data-enquiry data-subject="Free rent review request">
+        <p class="small muted" data-area-note>Your postcode routes this to your local team automatically.</p>
+        <input type="hidden" name="area" id="rv_area" data-label="Area">
+        <div class="form-grid">
+          <div class="field"><label for="rv_pc">Property postcode</label><input id="rv_pc" name="postcode" required autocomplete="postal-code" placeholder="e.g. DH1 3HP"></div>
+          <div class="field"><label for="rv_addr">Property address</label><input id="rv_addr" name="address" required autocomplete="street-address"></div>
+          <div class="field"><label for="rv_type">Property type</label><select id="rv_type" name="type"><option>House</option><option>Flat</option><option>HMO / shared house</option><option>Bungalow</option></select></div>
+          <div class="field"><label for="rv_beds">Bedrooms</label><select id="rv_beds" name="bedrooms"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5+</option></select></div>
+          <div class="field full">
+            <span class="field label" style="font-weight:700;font-size:.92rem">I'm interested in</span>
+            <div class="radio-row">
+              <label><input type="radio" name="interest" value="Full management" checked data-label="Interest"> Full management</label>
+              <label><input type="radio" name="interest" value="Tenant find" data-label="Interest"> Tenant find</label>
+              <label><input type="radio" name="interest" value="Rent guarantee" data-label="Interest"> Rent guarantee</label>
+              <label><input type="radio" name="interest" value="HMO" data-label="Interest"> HMO</label>
+              <label><input type="radio" name="interest" value="Short let" data-label="Interest"> Short let</label>
+              <label><input type="radio" name="interest" value="Not sure" data-label="Interest"> Not sure</label>
+            </div>
+          </div>
+          <div class="field full"><label for="rv_status">Current situation</label><select id="rv_status" name="situation"><option>Empty, ready to let</option><option>Tenanted, self-managed</option><option>Tenanted, with another agent</option><option>Buying it, not completed yet</option><option>Needs work first</option></select></div>
+          <div class="field"><label for="rv_name">Your name</label><input id="rv_name" name="name" required autocomplete="name"></div>
+          <div class="field"><label for="rv_phone">Phone</label><input id="rv_phone" name="phone" type="tel" required autocomplete="tel"></div>
+          <div class="field full"><label for="rv_email">Email</label><input id="rv_email" name="email" type="email" required autocomplete="email"></div>
+          <div class="field full"><label for="rv_notes">Anything we should know <span class="hint">(optional)</span></label><textarea id="rv_notes" name="notes"></textarea></div>
+        </div>
+        <input name="website" hidden tabindex="-1" autocomplete="off">
+        <div class="form-actions">
+          <button class="btn btn-primary btn-lg" type="submit">Get my free rent review</button>
+          <span class="small muted">Reply within one working day</span>
+        </div>
+        <p class="form-note">We use your details to prepare the review and contact you about it. See our <a href="privacy.html">privacy policy</a>.</p>
+      </form>
+      <div class="form-done">
+        <h3>Thanks. One more tap to send it.</h3>
+        <p>Send your request on WhatsApp (fastest), or by email. <span data-who></span> Your details are below if you'd rather copy them.</p>
+        <div class="cta-row">
+          <a class="btn btn-wa" data-wa href="#" target="_blank" rel="noopener">Send on WhatsApp</a>
+          <a class="btn btn-ghost" data-mail href="#">Send by email</a>
+          <button class="btn btn-ghost" type="button" data-copy>Copy details</button>
+        </div>
+        <pre class="mt-1"></pre>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>What you'll get back</h3>
+        <ul class="tick-list">
+          <li>A rent range from comparable lets in your area, and the figure we'd market at</li>
+          <li>A compliance list for your country: Rent Smart Wales or Right to Rent, EPC, gas, EICR, alarms, licence, deposit</li>
+          <li>If you're already let: a free check of your current contract and deposit</li>
+          <li>If you're weighing a short let: the appraisal that compares both</li>
+          <li>Our recommended service, with the fee, in writing</li>
+        </ul>
+      </div>
+      <div class="card mt-1">
+        <h3>Prefer to talk?</h3>
+        <p>Head office: 01792 807 051, Monday to Friday 9am to 5.30pm. WhatsApp 0751 355 2133 any time. Or email lettings@hellonewhome.co.uk. Your <a href="areas.html">local team's</a> number is on their area page.</p>
+        <a class="btn btn-wa" href="https://wa.me/447513552133?text=Hi%2C%20I%27d%20like%20a%20free%20rent%20review%20for%20my%20property." target="_blank" rel="noopener">Message on WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</section>

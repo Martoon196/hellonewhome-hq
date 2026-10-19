@@ -1,0 +1,65 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .lead-head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; }
+  .contact-row { display: flex; flex-wrap: wrap; gap: .6rem; margin: .4rem 0 1.2rem; }
+  .sla { border-radius: 10px; padding: .8rem 1rem; background: var(--mist); font-weight: 700; }
+  .sla.is-breach { background: #FDE8EE; color: #9B1C4B; }
+  .sla.is-ok { background: #E3F5EA; color: #17814A; }
+  .sla small { display: block; font-weight: 400; color: var(--muted); }
+  .sla.is-breach small { color: #9B1C4B; }
+  table.data td.k { width: 32%; font-weight: 700; color: var(--muted); }
+  table.data td.v { white-space: pre-wrap; word-break: break-word; }
+  .notes { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .5rem; }
+  .notes li { background: var(--mist); border-radius: 10px; padding: .6rem .8rem; font-size: .92rem; white-space: pre-wrap; word-break: break-word; }
+</style>{% endblock %}
+{% block content %}
+<p class="small"><a href="/partners/leads">All leads</a></p>
+<div class="page-title lead-head">
+  <div>
+    <span class="eyebrow">{{ kind_label }}</span>
+    <h1>{{ lead.name or "(no name)" }}</h1>
+    <p class="muted mb-0">Arrived {{ lead.created_at | uk("%d %b %Y at %H:%M") }}{% if lead.area %} · {{ lead.area.name }}{% endif %}{% if lead.postcode %} · {{ lead.postcode }}{% endif %}</p>
+  </div>
+  <span class="status status-{{ lead.status }}">{{ lead.status }}</span>
+</div>
+
+<div class="sla {{ 'is-breach' if breached else ('is-ok' if lead.status != 'new' else '') }}">
+  Contact within {{ sla_hours|int if sla_hours == sla_hours|int else sla_hours }} working hours
+  <small>{{ "%.1f" | format(elapsed) }} hours since this lead arrived{% if breached %}. Past the contact window: get in touch now.{% elif lead.status != "new" %}. Already in hand.{% endif %}</small>
+</div>
+
+<div class="contact-row mt-1">
+  {% if wa_href %}<a class="btn btn-wa btn-sm" href="{{ wa_href }}" target="_blank" rel="noopener">WhatsApp {{ wa_display }}</a>{% endif %}
+  {% if tel_href %}<a class="btn btn-ghost btn-sm" href="{{ tel_href }}">Call {{ lead.phone }}</a>{% endif %}
+  {% if lead.email %}<a class="btn btn-ghost btn-sm" href="mailto:{{ lead.email }}">Email {{ lead.email }}</a>{% endif %}
+  {% if not wa_href and not tel_href and not lead.email %}<span class="muted">No contact details were left.</span>{% endif %}
+</div>
+
+<div class="two-col">
+  <section class="panel">
+    <h2>What they told us</h2>
+    <table class="data">
+      <tbody>
+      {% if lead.phone %}<tr><td class="k">Phone</td><td class="v">{{ lead.phone }}</td></tr>{% endif %}
+      {% if lead.email %}<tr><td class="k">Email</td><td class="v">{{ lead.email }}</td></tr>{% endif %}
+      {% if lead.address %}<tr><td class="k">Address</td><td class="v">{{ lead.address }}</td></tr>{% endif %}
+      {% for k, v in payload_rows %}<tr><td class="k">{{ k | replace("_", " ") }}</td><td class="v">{{ v }}</td></tr>{% endfor %}
+      {% if lead.source_page %}<tr><td class="k">Sent from</td><td class="v">{{ lead.source_page }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel">
+    <h2>Progress</h2>
+    <form method="post" action="/partners/leads/{{ lead.id }}" class="form">
+      <div class="field"><label for="status">Status</label>
+        <select id="status" name="status">{% for st in statuses %}<option value="{{ st }}"{% if st == lead.status %} selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
+      <div class="field mt-1"><label for="note">Add a note</label>
+        <textarea id="note" name="note" rows="3" placeholder="Spoke at 10.15, viewing booked for Thursday"></textarea>
+        <span class="hint">Notes are stamped with the time and your name, and head office can see them.</span></div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+    <h2 class="mt-2">Notes</h2>
+    {% if notes %}<ul class="notes">{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>{% else %}<p class="muted">No notes yet.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

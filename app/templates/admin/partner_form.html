@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = (partner.name if partner else "New partner") ~ " | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .photo-row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .photo-row img { width: 88px; height: 88px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); }
+  select[multiple] { min-height: 160px; }
+  .login-box dl { margin-bottom: 1rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Partners</span>
+  <h1>{{ partner.name if partner else "New partner" }}</h1>
+  <div class="actions">
+    <a class="btn btn-ghost btn-sm" href="/admin/partners">All partners</a>
+    {% if partner %}<a class="btn btn-ghost btn-sm" href="/admin/leads?{{ 'area=' ~ partner.areas[0].id if partner.areas else '' }}">Leads</a>{% endif %}
+  </div>
+</div>
+
+<div class="two-col">
+<form method="post" action="{{ '/admin/partners/' ~ partner.id if partner else '/admin/partners/new' }}" class="form" enctype="multipart/form-data">
+  <div class="form-grid">
+    {{ f.text("name", "Full name", vals.name, required=True) }}
+    {{ f.text("first_name", "First name", vals.first_name, hint="How landlords are introduced to them. Defaults to the first word of the name.") }}
+    {{ f.text("email", "Email", vals.email, type="email", hint="Also used as their portal login.") }}
+    {{ f.text("phone", "Phone", vals.phone) }}
+    {{ f.text("whatsapp", "WhatsApp number", vals.whatsapp, hint="Digits starting 44, e.g. 447700900123. Spaces and a leading + are removed.") }}
+    {{ f.text("whatsapp_display", "WhatsApp as shown", vals.whatsapp_display, hint="e.g. 07700 900123") }}
+    {{ f.select("tier", "Tier", [("introducer", "Introducer"), ("area", "Area Partner")], vals.tier) }}
+    {{ f.select("status", "Status", [("pending", "Pending"), ("active", "Active"), ("paused", "Paused"), ("left", "Left")], vals.status, hint="Only active partners receive lead emails. Paused and left partners cannot log in.") }}
+    {{ f.text("units_managed", "Units managed", vals.units_managed, type="number", attrs='min="0" step="1"', hint="Shown on their dashboard as properties managed from their instructions.") }}
+    <div class="field">
+      <label for="areas">Areas</label>
+      <select id="areas" name="areas" multiple>
+        {% for a in areas %}<option value="{{ a.id }}"{% if a.id in vals.areas %} selected{% endif %}>{{ a.name }} ({{ a.status }}){% if a.is_hq %} - head office{% elif a.partner and (not partner or a.partner_id != partner.id) %} - currently {{ a.partner.name }}{% endif %}</option>{% endfor %}
+      </select>
+      <span class="hint">Hold Ctrl (or Cmd) to pick more than one. Choosing an area moves it to this partner; unticking it leaves the area unassigned.</span>
+    </div>
+    {{ f.textarea("bio", "Bio", vals.bio, rows=4, hint="Two lines landlords see on the area page: how long they have lived there, what they do locally, why to trust them.") }}
+    <div class="field full">
+      <label for="photo">Photo</label>
+      <div class="photo-row">
+        {% if partner and partner.photo_path %}<img src="/uploads/{{ partner.photo_path }}" alt="{{ partner.name }}">{% endif %}
+        <input id="photo" name="photo" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+      </div>
+      <span class="hint">JPG, PNG or WebP, square works best. Shown on their area page.</span>
+      {% if partner and partner.photo_path %}{{ f.checkbox("remove_photo", "Remove the current photo") }}{% endif %}
+    </div>
+    {{ f.textarea("notes", "Head office notes", vals.notes, rows=4, hint="Private to head office. Partners never see this.") }}
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-ghost" href="/admin/partners">Cancel</a>
+  </div>
+</form>
+
+<section class="panel login-box">
+  <h2>Portal login</h2>
+  {% if not partner %}
+  <p class="help">Save the partner first, then create their portal login from this page.</p>
+  {% else %}
+  {% set login = logins|selectattr("role", "equalto", "partner")|list|first %}
+  {% if login %}
+  <dl class="kv">
+    <dt>Email</dt><dd>{{ login.email }}{% if partner.email and login.email != partner.email %} <span class="small muted">(partner record says {{ partner.email }})</span>{% endif %}</dd>
+    <dt>Status</dt><dd>{% if login.is_active %}Active{% else %}<span class="status status-paused">Inactive</span>{% endif %}</dd>
+    <dt>First login</dt><dd>{{ "Pending: must set a password" if login.must_change_password else "Done" }}</dd>
+    <dt>Last login</dt><dd>{{ login.last_login | uk("%d %b %Y %H:%M") or "Never" }}</dd>
+  </dl>
+  <div class="row-actions">
+    <form method="post" action="/admin/partners/{{ partner.id }}/reset" data-confirm="Reset the password for {{ login.email }}? The old one stops working immediately."><button class="btn btn-ghost btn-sm" type="submit">Reset password</button></form>
+    {% if login.is_active %}
+    <form method="post" action="/admin/partners/{{ partner.id }}/deactivate" data-confirm="Deactivate the login for {{ login.email }}?"><button class="btn btn-danger btn-sm" type="submit">Deactivate login</button></form>
+    {% else %}
+    <form method="post" action="/admin/partners/{{ partner.id }}/activate"><button class="btn btn-primary btn-sm" type="submit">Reactivate login</button></form>
+    {% endif %}
+  </div>
+  <p class="help mt-1">A reset shows a new temporary password once; the partner chooses their own at the next log in.</p>
+  {% else %}
+  <p>No login yet.{% if not partner.email %} Add an email address above and save before creating one.{% endif %}</p>
+  <form method="post" action="/admin/partners/{{ partner.id }}/login"><button class="btn btn-primary btn-sm" type="submit"{% if not partner.email %} disabled{% endif %}>Create login</button></form>
+  <p class="help mt-1">Creates a portal account for {{ partner.email or "their email" }} with a temporary password shown once on the next screen.</p>
+  {% endif %}
+  {% endif %}
+</section>
+</div>
+{% endblock %}

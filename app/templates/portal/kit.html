@@ -1,0 +1,193 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .kit-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 1.4rem; padding: 0; list-style: none; }
+  .kit-tabs a { text-decoration: none; font-weight: 700; border: 2px solid var(--line); border-radius: 999px; padding: .45rem .9rem; color: var(--ink); font-size: .92rem; }
+  .kit-tabs a.is-active, .kit-tabs a:hover { border-color: var(--pink); color: var(--pink-deep); }
+  .kit-tabs a small { color: var(--muted); font-weight: 400; }
+  .kit-panel { display: none; }
+  .kit-panel.is-active { display: block; }
+  .kit-item h3 { font-size: 1.02rem; margin: 0; }
+  .kit-item textarea { width: 100%; min-height: 180px; font: .9rem/1.5 var(--font); border: 2px solid var(--line); border-radius: 10px; padding: .7rem .8rem; resize: vertical; background: var(--mist); }
+  .kit-item textarea.short { min-height: 90px; }
+  .kit-item img { width: 100%; height: auto; border-radius: 10px; border: 1px solid var(--line); background: var(--mist); }
+  .area-pick { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; margin-bottom: 1.2rem; }
+  .area-pick .field { min-width: 220px; }
+  .gbp-block { margin-bottom: 1.6rem; }
+  .gbp-block h3 { font-size: 1.05rem; margin-bottom: .6rem; }
+  .gbp-list { padding-left: 1.2rem; margin: 0; }
+  .gbp-list li { margin-bottom: .3rem; }
+  .filters { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; margin-bottom: 1.2rem; }
+  .filters .field { min-width: 180px; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Marketing kit</span>
+  <h1>Marketing kit{% if area %}: {{ area.name }}{% endif %}</h1>
+  <p class="help">Every item is already filled in with your name, WhatsApp number and area. Copy a post, print a flyer, download a graphic.</p>
+</div>
+{% if not area %}
+<section class="panel"><p class="muted">No area is attached to your account yet, so there is nothing to personalise. Head office will link your area when it is ready.</p></section>
+{% else %}
+{% if areas|length > 1 %}
+<form method="get" action="/partners/kit" class="area-pick">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="field"><label for="area">Area</label>
+    <select id="area" name="area" onchange="this.form.submit()">{% for a in areas %}<option value="{{ a.slug }}"{% if a.id == area.id %} selected{% endif %}>{{ a.name }}</option>{% endfor %}</select></div>
+  <noscript><button class="btn btn-ghost btn-sm" type="submit">Switch</button></noscript>
+</form>
+{% endif %}
+{% if not fees_confirmed %}<div class="notice" style="margin-bottom:1.2rem"><strong>Check before you print or post.</strong> Fee figures in these templates follow the current fee sheet and are awaiting head office sign-off. If head office has not confirmed the fees to you, hold the fee-bearing items.</div>{% endif %}
+{% if empty %}
+<section class="panel"><p class="muted">The marketing templates have not been published yet. Head office is finishing them; check back soon.</p></section>
+{% else %}
+<ul class="kit-tabs" role="tablist">
+  {% for key, label in tabs %}<li><a href="/partners/kit?area={{ area.slug | urlencode }}&amp;tab={{ key }}" data-tab="{{ key }}"{% if key == tab %} class="is-active"{% endif %}>{{ label }} <small>{{ counts[key] }}</small></a></li>{% endfor %}
+</ul>
+
+<section class="kit-panel{% if tab == 'flyers' %} is-active{% endif %}" data-panel="flyers">
+  {% if flyers %}
+  <div class="kit-grid">
+    {% for f in flyers %}
+    <article class="kit-item">
+      <h3>{{ f.title }}</h3>
+      <div class="chips"><span class="chip">{{ f.size }}</span>{% if f.region and f.region != "both" %}<span class="chip">{{ f.region | capitalize }}</span>{% endif %}</div>
+      {% if f.print_notes %}<p class="help">{{ f.print_notes }}</p>{% endif %}
+      <div class="actions"><a class="btn btn-primary btn-sm" href="/partners/kit/flyer/{{ f.id | urlencode }}?area={{ area.slug | urlencode }}" target="_blank" rel="noopener">Print view</a></div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<section class="panel"><p class="muted">No flyers yet.</p></section>{% endif %}
+</section>
+
+<section class="kit-panel{% if tab == 'fb' %} is-active{% endif %}" data-panel="fb">
+  <form method="get" action="/partners/kit" class="filters">
+    <input type="hidden" name="area" value="{{ area.slug }}"><input type="hidden" name="tab" value="fb">
+    <div class="field"><label for="pillar">Pillar</label>
+      <select id="pillar" name="pillar"><option value="">All pillars</option>{% for p in pillars %}<option value="{{ p }}"{% if p == pillar %} selected{% endif %}>{{ p | replace("-", " ") | capitalize }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="region">Region</label>
+      <select id="region" name="region"><option value="">{{ area.region | capitalize }} and both</option><option value="all"{% if region == "all" %} selected{% endif %}>All regions</option></select></div>
+    <button class="btn btn-ghost btn-sm" type="submit">Filter</button>
+  </form>
+  {% if posts %}
+  <div class="kit-grid">
+    {% for p in posts %}
+    <article class="kit-item">
+      <h3>{{ p.title }}</h3>
+      <div class="chips"><span class="chip">{{ p.pillar | replace("-", " ") }}</span><span class="chip">{{ "England and Wales" if p.region == "both" else p.region | capitalize }}</span></div>
+      <label class="sr" for="fb-{{ p.dom_id }}">{{ p.title }}</label>
+      <textarea id="fb-{{ p.dom_id }}" readonly>{{ p.text }}</textarea>
+      {% if p.image_hint %}<p class="help">Image: {{ p.image_hint }}</p>{% endif %}
+      <div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#fb-{{ p.dom_id }}">Copy</button></div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<section class="panel"><p class="muted">No posts match that filter.</p></section>{% endif %}
+</section>
+
+<section class="kit-panel{% if tab == 'graphics' %} is-active{% endif %}" data-panel="graphics">
+  {% if graphics %}
+  <div class="kit-grid">
+    {% for g in graphics %}
+    <article class="kit-item">
+      <a href="/partners/kit/graphic/{{ g.id | urlencode }}?area={{ area.slug | urlencode }}"><img src="/partners/kit/graphic/{{ g.id | urlencode }}.svg?area={{ area.slug | urlencode }}" alt="{{ g.headline }}" loading="lazy"></a>
+      <h3>{{ g.headline }}</h3>
+      <div class="chips"><span class="chip">{{ g.format }}{% if formats.get(g.format) %} {{ formats[g.format].w }}×{{ formats[g.format].h }}{% endif %}</span><span class="chip">{{ g.style }}</span></div>
+      {% if g.note %}<p class="help">{{ g.note }}</p>{% endif %}
+      <div class="actions"><a class="btn btn-primary btn-sm" href="/partners/kit/graphic/{{ g.id | urlencode }}?area={{ area.slug | urlencode }}">Open and download PNG</a></div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<section class="panel"><p class="muted">No graphics yet.</p></section>{% endif %}
+</section>
+
+<section class="kit-panel{% if tab == 'gbp' %} is-active{% endif %}" data-panel="gbp">
+  {% if counts.gbp %}
+  <section class="panel">
+    <h2>Google Business Profile for {{ area.name }}</h2>
+    {% if gbp.name_pattern %}<div class="gbp-block"><h3>Profile name</h3><p><strong>{{ gbp.name_pattern }}</strong></p>{% if gbp.name_rule %}<p class="help">{{ gbp.name_rule }}</p>{% endif %}</div>{% endif %}
+    {% if gbp_lists.categories %}<div class="gbp-block"><h3>Categories</h3><div class="chips">{% for c in gbp_lists.categories %}<span class="chip">{{ c }}</span>{% endfor %}</div>{% if gbp.categories_note %}<p class="help">{{ gbp.categories_note }}</p>{% endif %}</div>{% endif %}
+    {% if gbp.service_area or gbp.hours or gbp.phone or gbp.website %}<div class="gbp-block"><h3>Details</h3><ul class="gbp-list">{% if gbp.phone %}<li>Phone: {{ gbp.phone }}</li>{% endif %}{% if gbp.website %}<li>Website: {{ gbp.website }}</li>{% endif %}{% if gbp.service_area %}<li>Service area: {{ gbp.service_area }}</li>{% endif %}{% if gbp.hours %}<li>Hours: {{ gbp.hours }}</li>{% endif %}</ul></div>{% endif %}
+    {% if gbp.description %}<div class="gbp-block kit-item"><h3>Description</h3><label class="sr" for="gbp-desc">Description</label><textarea id="gbp-desc" readonly>{{ gbp.description }}</textarea>{% if gbp.description_note %}<p class="help">{{ gbp.description_note }}</p>{% endif %}<div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#gbp-desc">Copy</button></div></div>{% endif %}
+  </section>
+  {% if gbp_services %}
+  <h2 class="mt-2">Services</h2>
+  <div class="kit-grid">
+    {% for sv in gbp_services %}
+    <article class="kit-item"><h3>{{ sv.name }}</h3><label class="sr" for="gbp-sv-{{ loop.index }}">{{ sv.name }}</label><textarea id="gbp-sv-{{ loop.index }}" class="short" readonly>{{ sv.description }}</textarea><div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#gbp-sv-{{ loop.index }}">Copy</button></div></article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if gbp_posts %}
+  <h2 class="mt-2">Posts</h2>
+  <div class="kit-grid">
+    {% for p in gbp_posts %}
+    <article class="kit-item"><h3>{{ p.title }}</h3><div class="chips">{% if p.type %}<span class="chip">{{ p.type }}</span>{% endif %}{% if p.cta_button %}<span class="chip">Button: {{ p.cta_button }}</span>{% endif %}</div><label class="sr" for="gbp-post-{{ loop.index }}">{{ p.title }}</label><textarea id="gbp-post-{{ loop.index }}" readonly>{{ p.text }}</textarea><div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#gbp-post-{{ loop.index }}">Copy</button></div></article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if gbp_qna %}
+  <h2 class="mt-2">Questions and answers</h2>
+  {% if gbp.qna_note %}<p class="help">{{ gbp.qna_note }}</p>{% endif %}
+  <div class="kit-grid">
+    {% for qa in gbp_qna %}
+    <article class="kit-item"><h3>{{ qa.q }}</h3><label class="sr" for="gbp-qa-{{ loop.index }}">{{ qa.q }}</label><textarea id="gbp-qa-{{ loop.index }}" class="short" readonly>{{ qa.a }}</textarea><div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#gbp-qa-{{ loop.index }}">Copy</button></div></article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if gbp_lists.attributes or gbp_lists.photo_plan %}
+  <section class="panel mt-2">
+    {% if gbp_lists.attributes %}<div class="gbp-block"><h3>Attributes to tick</h3><ul class="gbp-list">{% for a in gbp_lists.attributes %}<li>{{ a }}</li>{% endfor %}</ul>{% if gbp.attributes_note %}<p class="help">{{ gbp.attributes_note }}</p>{% endif %}</div>{% endif %}
+    {% if gbp_lists.photo_plan %}<div class="gbp-block"><h3>Photo plan</h3><ol class="gbp-list">{% for ph in gbp_lists.photo_plan %}<li>{{ ph }}</li>{% endfor %}</ol></div>{% endif %}
+  </section>
+  {% endif %}
+  {% else %}<section class="panel"><p class="muted">No Google Business Profile content yet.</p></section>{% endif %}
+</section>
+
+<section class="kit-panel{% if tab == 'letters' %} is-active{% endif %}" data-panel="letters">
+  {% if letters %}
+  <div class="kit-grid">
+    {% for l in letters %}
+    <article class="kit-item">
+      <h3>{{ l.title }}</h3>
+      <div class="chips"><span class="chip">A4</span>{% if l.region and l.region != "both" %}<span class="chip">{{ l.region | capitalize }}</span>{% endif %}</div>
+      {% if l.notes %}<p class="help">{{ l.notes }}</p>{% endif %}
+      <div class="actions"><a class="btn btn-primary btn-sm" href="/partners/kit/letter/{{ l.id | urlencode }}?area={{ area.slug | urlencode }}" target="_blank" rel="noopener">Print view</a></div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<section class="panel"><p class="muted">No letters yet.</p></section>{% endif %}
+</section>
+
+<section class="kit-panel{% if tab == 'scripts' %} is-active{% endif %}" data-panel="scripts">
+  {% if scripts %}
+  <div class="kit-grid">
+    {% for sc in scripts %}
+    <article class="kit-item">
+      <h3>{{ sc.title }}</h3>
+      {% if sc.notes %}<p class="help">{{ sc.notes }}</p>{% endif %}
+      <label class="sr" for="script-{{ sc.dom_id }}">{{ sc.title }}</label>
+      <textarea id="script-{{ sc.dom_id }}" readonly>{{ sc.text }}</textarea>
+      <div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#script-{{ sc.dom_id }}">Copy</button></div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<section class="panel"><p class="muted">No scripts yet.</p></section>{% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  var links = document.querySelectorAll(".kit-tabs a[data-tab]"), panels = document.querySelectorAll(".kit-panel[data-panel]");
+  links.forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+      e.preventDefault();
+      var t = a.getAttribute("data-tab");
+      links.forEach(function (l) { l.classList.toggle("is-active", l === a); });
+      panels.forEach(function (p) { p.classList.toggle("is-active", p.getAttribute("data-panel") === t); });
+      try { history.replaceState(null, "", a.getAttribute("href")); } catch (err) {}
+    });
+  });
+})();
+</script>{% endblock %}

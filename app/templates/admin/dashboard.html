@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Dashboard | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .stat.is-late strong { color: #9B1C4B; }
+  tr.row-late td { background: #FDE8EE; }
+  .late-tag { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9B1C4B; margin-left: .4rem; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title"><span class="eyebrow">Head office</span><h1>Admin</h1></div>
+{% if stats.leads_hq_late %}<div class="flash flash-err">{{ stats.leads_hq_late }} head-office lead{{ "s" if stats.leads_hq_late != 1 else "" }} past the {{ hq_hours|int if hq_hours == hq_hours|int else hq_hours }}-hour response target. <a href="/admin/leads?status=new&amp;partner=none">See them</a>.</div>{% endif %}
+<div class="stats stats-4">
+  <div class="stat{% if stats.leads_hq_late %} is-late{% endif %}"><strong>{{ stats.leads_hq_late }}</strong><span>head-office leads past the {{ hq_hours|int if hq_hours == hq_hours|int else hq_hours }}-hour target (new, no partner)</span></div>
+  <div class="stat"><strong>{{ stats.areas_active }}</strong><span><a href="/admin/areas">active areas</a> · {{ stats.areas_coming }} opening soon</span></div>
+  <div class="stat"><strong>{{ stats.partners_active }}</strong><span><a href="/admin/partners">active partners</a> · {{ stats.partners_pending }} pending</span></div>
+  <div class="stat"><strong>{{ stats.leads_new }}</strong><span><a href="/admin/leads?status=new">new leads</a> · {{ stats.leads_total }} total · <a href="/admin/leads?area=none">{{ stats.leads_uncovered }} not covered</a></span></div>
+  <div class="stat"><strong>{{ stats.resources }}</strong><span><a href="/admin/resources">resources</a> · {{ stats.resources_placeholder }} still placeholders</span></div>
+</div>
+<section class="panel mt-2">
+  <div class="panel-head"><h2>Latest leads</h2><a class="btn btn-ghost btn-sm" href="/admin/leads">All leads</a></div>
+  {% if recent %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>When</th><th>Who</th><th>Type</th><th>Postcode</th><th>Area</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for l in recent %}
+    {% set late = l.status == "new" and not l.partner_id and l.kind != "partner_request" and l.created_at < hq_cutoff %}
+    <tr{% if late %} class="row-late"{% endif %}><td class="nowrap">{{ l.created_at | uk("%d %b %H:%M") }}</td><td><a href="/admin/leads/{{ l.id }}">{{ l.name or "(no name)" }}</a>{% if late %}<span class="late-tag">Past target</span>{% endif %}</td><td>{{ l.kind | replace("_", " ") }}</td><td>{{ l.postcode }}</td><td>{{ l.area.name if l.area else "not covered" }}</td><td><span class="status status-{{ l.status }}">{{ l.status }}</span></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">No leads yet.</p>{% endif %}
+</section>
+<section class="panel mt-2">
+  <h2>Next steps</h2>
+  <ul class="tick-list">
+    <li><a href="/admin/areas">Set each area's postcode districts and switch it to active</a></li>
+    <li><a href="/admin/partners">Add partners, create their logins and attach them to areas</a></li>
+    <li><a href="/admin/resources">Replace placeholder resources with your contracts, guides and training</a>{% if stats.resources_placeholder %} ({{ stats.resources_placeholder }} to go){% endif %}</li>
+    <li><a href="/admin/settings">Fill in licence numbers, schemes and the registered office</a>{% if placeholders %} ({{ placeholders|length }} placeholder{{ "s" if placeholders|length != 1 else "" }} left){% endif %}</li>
+    <li><a href="/admin/territory">Check a postcode routes to the right partner</a></li>
+    <li><a href="/admin/audit">Review the audit log of recent changes</a></li>
+  </ul>
+</section>
+{% endblock %}

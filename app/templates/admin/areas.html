@@ -1,0 +1,44 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Areas | Admin" %}
+{% block head %}{{ f.styles() }}{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Coverage</span>
+  <h1>Areas and postcodes</h1>
+  <div class="actions">
+    <a class="btn btn-primary btn-sm" href="/admin/areas/new">Add area</a>
+    <a class="btn btn-ghost btn-sm" href="/admin/territory">Territory checker</a>
+  </div>
+</div>
+<section class="panel">
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>Area</th><th>Region</th><th>Run by</th><th>Status</th><th>Partner</th><th>Postcodes</th><th>Live page</th><th>Quick action</th></tr></thead>
+    <tbody>
+    {% for a in areas %}
+    <tr>
+      <td><a href="/admin/areas/{{ a.id }}"><strong>{{ a.name }}</strong></a><br><span class="small muted">/areas/{{ a.slug }}</span></td>
+      <td>{{ "Wales" if a.region == "wales" else "England" }}</td>
+      <td>{{ "Head office" if a.is_hq else "Local Partner" }}</td>
+      <td><span class="status status-{{ a.status }}">{{ a.status }}</span></td>
+      <td>{% if a.is_hq %}<span class="muted">Head office</span>{% elif a.partner %}<a href="/admin/partners/{{ a.partner.id }}">{{ a.partner.name }}</a>{% else %}<span class="muted">Unassigned</span>{% endif %}</td>
+      <td>{{ a.postcodes|length }}</td>
+      <td>{% if a.is_public %}<a href="/areas/{{ a.slug }}" target="_blank" rel="noopener">View</a>{% else %}<span class="muted">Not public</span>{% endif %}</td>
+      <td class="row-actions">
+        {% if a.status == "active" %}
+        <form method="post" action="/admin/areas/{{ a.id }}/status"><input type="hidden" name="status" value="paused"><button class="btn btn-ghost btn-sm" type="submit">Pause</button></form>
+        {% else %}
+        <form method="post" action="/admin/areas/{{ a.id }}/status"><input type="hidden" name="status" value="active"><button class="btn btn-primary btn-sm" type="submit">Activate</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">No areas yet. Add the first one.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="help mt-1">Active and coming soon areas are public and route leads. Paused and hidden areas keep their data but drop out of the postcode finder.</p>
+</section>
+{% endblock %}

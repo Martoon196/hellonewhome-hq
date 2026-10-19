@@ -1,0 +1,67 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .area-card { margin-bottom: 1.4rem; }
+  .area-card h2 { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+  .area-links { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
+  .area-facts { display: grid; grid-template-columns: auto 1fr; gap: .4rem 1rem; margin: 0; font-size: .95rem; }
+  .area-facts dt { color: var(--muted); font-weight: 700; }
+  .area-facts dd { margin: 0; }
+  @media (max-width: 620px) { .area-facts { grid-template-columns: 1fr; } .area-facts dt { margin-top: .4rem; } }
+  .req-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
+  .req-list li { border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; font-size: .92rem; }
+  .req-list .when { color: var(--muted); font-size: .82rem; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">My area</span>
+  <h1>Your area{{ "s" if cards|length != 1 else "" }}</h1>
+  <p class="help">The postcodes below decide which enquiries come to you. Ask head office for a change using the form at the bottom.</p>
+</div>
+{% for c in cards %}
+{% set a = c.area %}
+<section class="panel area-card">
+  <h2>{{ a.name }} <span class="status status-{{ a.status }}">{{ a.status }}</span><span class="chip">{{ a.region | capitalize }}</span></h2>
+  <dl class="area-facts">
+    <dt>Covers</dt><dd>{{ a.covers or "Not set yet" }}</dd>
+    <dt>Postcodes</dt><dd>{% if a.postcodes %}<div class="chips">{% for pc in a.postcodes %}<span class="chip">{{ pc }}</span>{% endfor %}</div>{% else %}<span class="muted">None set yet, so no enquiries route here</span>{% endif %}</dd>
+    {% if a.places %}<dt>Places</dt><dd>{{ a.places | join(", ") }}</dd>{% endif %}
+    {% if a.rent_avg %}<dt>Average rent</dt><dd>{{ a.rent_avg }}{% if a.rent_change %} ({{ a.rent_change }} on a year ago){% endif %}</dd>{% endif %}
+  </dl>
+  <div class="area-links">
+    <a class="btn btn-ghost btn-sm" href="{{ c.hub }}" target="_blank" rel="noopener">Area page</a>
+    <a class="btn btn-ghost btn-sm" href="{{ c.hub }}/lettings" target="_blank" rel="noopener">Lettings page</a>
+    <a class="btn btn-ghost btn-sm" href="{{ c.hub }}/short-lets" target="_blank" rel="noopener">Short-lets page</a>
+    <a class="btn btn-ghost btn-sm" href="{{ c.maps_url }}" target="_blank" rel="noopener">{{ a.name }} on Google Maps</a>
+  </div>
+  {% if a.status != "active" %}<p class="help">This area is not live yet. The pages open, but they are marked as opening soon until head office switches the area on.</p>{% endif %}
+</section>
+{% else %}
+<section class="panel"><p class="muted">No area is attached to your account yet. Head office will link it when your patch is agreed.</p></section>
+{% endfor %}
+
+{% if cards %}
+<div class="two-col">
+  <section class="panel">
+    <h2>Request a change</h2>
+    <p class="help">Postcodes, places, the covers line, rent figures, anything on your pages. Head office reviews every request and replies on WhatsApp or by email.</p>
+    <form method="post" action="/partners/area/request" class="form">
+      <div class="field"><label for="area_id">Area</label>
+        <select id="area_id" name="area_id">{% for c in cards %}<option value="{{ c.area.id }}">{{ c.area.name }}</option>{% endfor %}</select></div>
+      <div class="field mt-1"><label for="request">What would you like changed</label><textarea id="request" name="request" rows="3" required maxlength="2000" placeholder="Add DH9 to my postcodes"></textarea></div>
+      <div class="field mt-1"><label for="reason">Why</label><textarea id="reason" name="reason" rows="2" maxlength="2000" placeholder="I already manage two homes in Stanley and get asked about more"></textarea></div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Send to head office</button></div>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Requests sent</h2>
+    {% if sent %}
+    <ul class="req-list">
+      {% for l in sent %}
+      <li><span class="when">{{ l.created_at | uk("%d %b %Y") }} · {{ l.area.name if l.area else "" }} · <span class="status status-{{ l.status }}">{{ "received" if l.status == "new" else l.status }}</span></span><br>{{ l.payload.get("request", "") }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">Nothing sent yet.</p>{% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

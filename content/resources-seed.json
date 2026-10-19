@@ -1,0 +1,274 @@
+[
+  {
+    "category": "Contracts & paperwork",
+    "title": "England tenancy agreement (assured periodic)",
+    "description": "Head office's standard assured periodic tenancy for England under the Renters' Rights Act 2025, with the written statement of terms the Act requires before the tenancy starts. Issued by head office only; partners never edit or sign it.",
+    "kind": "file",
+    "region": "england",
+    "placeholder": true
+  },
+  {
+    "category": "Contracts & paperwork",
+    "title": "Wales occupation contract and written statement",
+    "description": "The standard occupation contract for Wales under the Renting Homes (Wales) Act 2016, with the written statement issued within 14 days of the occupation date. Head office issues it; the partner hands it over at move-in.",
+    "kind": "file",
+    "region": "wales",
+    "placeholder": true
+  },
+  {
+    "category": "Contracts & paperwork",
+    "title": "Terms of business (landlord)",
+    "description": "The landlord agreement for Tenant Find, Full Management and Managed+: the fee sheet, the 30 days' notice clause, what head office does and what the Local Partner does. The fees page is the contract; this document matches it exactly.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Contracts & paperwork",
+    "title": "Holding deposit terms",
+    "description": "The holding deposit form and the plain-English terms: never more than one week's rent in either nation, when it is refunded, when it can be kept, and the 15-day deadline. Used at every application.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Contracts & paperwork",
+    "title": "Local Partner agreement (heads of terms)",
+    "description": "The introducer and area partner agreement: territory, commission, the proving period, what is regulated and reserved to head office, data protection and conduct. Solicitor-reviewed version pending [CONFIRM].",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Contracts & paperwork",
+    "title": "Short-let owner management agreement",
+    "description": "The owner agreement for SA Launch, Full SA Management and SA Co-Host: fees, cleaning at cost, the 30-day exit, the night-count declaration and the conditions on the 'beat your last three months' backstop.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Software & systems",
+    "title": "CRM: how leads are routed",
+    "description": "Every lead carries a postcode and lands in the territory that owns it. How to find your leads, log a call, set a follow-up, record an opt-out and hand a lead back to head office. Screenshots to follow.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Software & systems",
+    "title": "Referencing: Vouch and Goodlord",
+    "description": "How an applicant is referenced, what the partner collects at the viewing (ID, income, last landlord), what head office does, how long it takes and what a fail means. Partners never see the credit file.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Software & systems",
+    "title": "Portals: listing standard",
+    "description": "What a Hello New Home listing on Rightmove, Zoopla and OnTheMarket looks like: photo count and order, floor plan, the honest rent line, the no-fees wording, the EPC. The partner supplies photos; head office publishes.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Software & systems",
+    "title": "SA pricing: how nightly rates are set",
+    "description": "How head office sets and reviews dynamic pricing for a short-let unit, what the partner reports from changeovers, and how the night counter and the London 90-night block work.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Software & systems",
+    "title": "Partner portal: templates and approvals",
+    "description": "How to render a flyer, post or letter with your area details, what is pre-approved, what needs head office sign-off, and why the fee fields are locked until the fee sheet is confirmed.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Scripts & objections",
+    "title": "Scripts: call, doorstep, networking, WhatsApp, review ask, referral ask",
+    "description": "The six short scripts, tokenised with your area and number. Rendered from the marketing template library.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Scripts & objections",
+    "title": "Objection handling: the twelve",
+    "description": "What each common objection usually means, what to say, what not to say: 'my agent is cheaper', 'I'm locked in', 'what's the catch', 'you're not even an agent' and eight more.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Scripts & objections",
+    "title": "Facebook group rules and DM replies",
+    "description": "How to post in local groups without being removed, the three reply-only DM templates, and the rule that we never message an individual who has not posted, messaged or met us first.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Renters' Rights Act in 10 minutes",
+    "description": "England only. Periodic tenancies, the end of Section 21, rent increases once a year, the written statement of terms and the £7,000 penalty, the landlord database from 15 December 2026, and what a partner may and may not say about any of it.",
+    "kind": "page",
+    "region": "england",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Renting Homes (Wales) Act in 10 minutes",
+    "description": "Wales only. Contract-holders and occupation contracts, the 14-day written statement, the six-month notice period, fitness for human habitation, Rent Smart Wales registration and licensing, and what a partner may and may not say.",
+    "kind": "page",
+    "region": "wales",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Right to Rent",
+    "description": "England only. Who must be checked, when, with what documents, the online share-code route, and the civil penalties. Head office performs the check; the partner collects documents at the viewing and never decides.",
+    "kind": "page",
+    "region": "england",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Short-let rules by nation",
+    "description": "The business-rates night test (70 of 140 in England; 182 of 252 in Wales), council tax premiums, the registers (Wales open now, deadline 31 March 2027; England expected March 2027), planning (C6 and Article 4 in Wales; the 90-night rule in London), and the sentence partners never say: 'you'll be fine'.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Viewing standards",
+    "description": "Before, during and after a viewing: confirming the applicant, safety, what to show, what to say about rent and fees, what not to promise, and the same-day write-up to head office.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Inspection checklist",
+    "description": "The quarterly inspection: room-by-room checks, the alarms test, boiler pressure, damp points, photo standard (30 to 50, no tenant possessions identifiable), and the report format.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Training",
+    "title": "Check-in and check-out inventory standard",
+    "description": "How an inventory is produced, photographed and signed at move-in and compared at move-out, and how deposit deductions are evidenced for the scheme's dispute service.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Brand",
+    "title": "Logo files",
+    "description": "Hello New Home mark in pink, charcoal and white; SVG, PNG and PDF; minimum sizes and clear space. hellomyroom and Somerset Lettings marks are not for partner use.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Brand",
+    "title": "Colours",
+    "description": "Pink #E0287A, charcoal, cream and the two greys, with the dark, pink and light graphic styles used in the template library and which text colour sits on which background.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Brand",
+    "title": "Fonts",
+    "description": "Lato for everything. Weights, sizes for A5, A4 and A6 print, and the web fallback.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Brand",
+    "title": "Photo guidelines",
+    "description": "Real places and real people, daylight, no stock imagery, no property number legible, no tenant possessions identifiable, permission for any face, and the rule that a demo or mock-up is never presented as a managed property.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Brand",
+    "title": "Brand voice guide",
+    "description": "One page: plain, warm, local, confident, honest. The words we use and the words we avoid, the approved claims and the claims we never make, and the contact block.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Compliance checklists",
+    "title": "England landlord compliance checklist",
+    "description": "The one-page list we run as a calendar: written statement of terms, Right to Rent, deposit within 30 days and the five-week cap, gas, electrical, EPC, smoke and CO alarms, council licensing, the landlord database. Dated and sourced; the public version is the lead magnet.",
+    "kind": "file",
+    "region": "england",
+    "placeholder": true
+  },
+  {
+    "category": "Compliance checklists",
+    "title": "Wales landlord compliance checklist",
+    "description": "Rent Smart Wales registration and licence, the written statement within 14 days, mains-wired interlinked alarms, CO alarms, the five-year electrical report, deposit within 30 days, gas, EPC, HMO licensing. Dated and sourced; the public version is the lead magnet.",
+    "kind": "file",
+    "region": "wales",
+    "placeholder": true
+  },
+  {
+    "category": "Compliance checklists",
+    "title": "Short-let (SA) compliance checklist",
+    "description": "Fire risk assessment, gas, electrical, PAT, furniture labels, insurance check, the register, the night test, planning position, council licensing, smart-lock and noise-monitor set-up, and the London night counter.",
+    "kind": "file",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Finance",
+    "title": "Commission statement explainer",
+    "description": "How to read your monthly statement: which instructions are yours, introducer and area partner rates, the £100 per SA unit live, the £99 systems fee from month four, timing of payment and what 'net management fee' means. Worked examples are illustrative.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Finance",
+    "title": "Invoicing guide",
+    "description": "How and when to invoice head office for commission, what must be on the invoice, VAT status, the self-employed position and the records to keep. Not tax advice; see an accountant.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Finance",
+    "title": "Expenses and what head office pays for",
+    "description": "What is reimbursed (the Rent Smart Wales course after five instructions in Wales, approved print, approved sponsorships), what is not, and how to claim.",
+    "kind": "page",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Marketing",
+    "title": "Area launch kit",
+    "description": "The per-area creative with shared copy and local slots: Google profile, Meta and Google ads, letter and leaflet, Facebook templates, PR angle and the first 30 days of social.",
+    "kind": "link",
+    "region": "both",
+    "placeholder": true
+  },
+  {
+    "category": "Marketing",
+    "title": "Maps pack playbook",
+    "description": "How your area wins the Google 3-pack: one profile per area, naming, categories, service areas, NAP rules, the 20 citation sites, the review plan, photo and post cadence, tracking and the 90-day plan.",
+    "kind": "link",
+    "region": "both",
+    "placeholder": true
+  }
+]

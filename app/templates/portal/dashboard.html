@@ -1,0 +1,61 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .stat.is-breach strong { color: #9B1C4B; }
+  .stat.is-ok strong { color: var(--green-deep); }
+  tr.row-breach td { background: #FDE8EE; }
+  tr.row-breach td:first-child { border-left: 4px solid #9B1C4B; }
+  .sla-tag { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9B1C4B; margin-left: .4rem; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Partner portal</span>
+  <h1>Hello{% if user.partner %}, {{ user.partner.display_first }}{% endif %}</h1>
+</div>
+{% if breach_count %}<div class="flash flash-err">{{ breach_count }} new lead{{ "s" if breach_count != 1 else "" }} past the {{ sla_hours|int if sla_hours == sla_hours|int else sla_hours }}-hour contact window. Call or WhatsApp them first.</div>{% endif %}
+<div class="stats stats-4">
+  <div class="stat"><strong>{{ open_count }}</strong><span>open leads in your area{{ "s" if areas|length != 1 else "" }}</span></div>
+  <div class="stat {{ 'is-breach' if breach_count else 'is-ok' }}"><strong>{{ breach_count }}</strong><span>new leads older than {{ sla_hours|int if sla_hours == sla_hours|int else sla_hours }} hours (your SLA)</span></div>
+  <div class="stat"><strong>{{ user.partner.units_managed if user.partner else "–" }}</strong><span>properties managed from your instructions</span></div>
+  <div class="stat"><strong>{{ areas|length }}</strong><span>area{{ "s" if areas|length != 1 else "" }}: {% for a in areas %}{{ a.name }}{% if not loop.last %}, {% endif %}{% else %}none assigned yet{% endfor %}</span></div>
+</div>
+
+<div class="two-col mt-2">
+  <section class="panel">
+    <h2>Latest leads</h2>
+    {% if leads %}
+    <div class="table-scroll">
+    <table class="data">
+      <thead><tr><th>When</th><th>Who</th><th>Type</th><th>Postcode</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for l in leads %}
+      {% set breach = l.status == "new" and l.created_at < cutoff %}
+      <tr{% if breach %} class="row-breach"{% endif %}>
+        <td>{{ l.created_at | uk("%d %b %H:%M") }}</td>
+        <td><a href="/partners/leads/{{ l.id }}">{{ l.name or "(no name)" }}</a>{% if breach %}<span class="sla-tag">Past SLA</span>{% endif %}</td>
+        <td>{{ l.kind | replace("_", " ") }}</td>
+        <td>{{ l.postcode }}</td>
+        <td><span class="status status-{{ l.status }}">{{ l.status }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="mt-1"><a href="/partners/leads">All leads</a></p>
+    {% else %}<p class="muted">No leads yet. Your area page and the postcode finder route every enquiry in your patch here the moment it arrives.</p>{% endif %}
+    <p class="help">Contact every new lead within {{ sla_hours|int if sla_hours == sla_hours|int else sla_hours }} working hours. Rows in pink have waited longer than that.</p>
+  </section>
+  <section class="panel">
+    <h2>From head office</h2>
+    {% for n in announcements %}
+    <article class="note{% if n.pinned %} note-pinned{% endif %}"><h3>{{ n.title }}</h3><p>{{ n.body }}</p><p class="small muted">{{ n.created_at | uk("%d %b %Y") }}</p></article>
+    {% else %}<p class="muted">No announcements yet.</p>{% endfor %}
+    <h2 class="mt-2">Quick links</h2>
+    <ul class="tick-list">
+      <li><a href="/partners/kit">Marketing kit: flyers, posts, graphics, Google profile</a></li>
+      <li><a href="/partners/resources">Resource library: contracts, software guides, scripts, training</a></li>
+      <li><a href="/partners/area">Your area page and postcodes</a></li>
+      <li><a href="/partners/profile">Your profile (what landlords see)</a></li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Lead: " ~ (lead.name or "no name") ~ " | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
+  .timeline li { border-left: 3px solid var(--line); padding: .1rem 0 .1rem .9rem; }
+  .timeline .when { font-size: .8rem; color: var(--muted); }
+  table.data td.k { color: var(--muted); font-weight: 700; width: 32%; }
+  .payload-val { white-space: pre-wrap; word-break: break-word; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Lead #{{ lead.id }} · {{ lead.kind|replace("_", " ") }}</span>
+  <h1>{{ lead.name or "(no name)" }} <span class="status status-{{ lead.status }}">{{ lead.status }}</span></h1>
+  <div class="actions"><a class="btn btn-ghost btn-sm" href="/admin/leads">All leads</a></div>
+</div>
+
+<div class="two-col">
+  <div>
+    <section class="panel">
+      <h2>Details</h2>
+      <dl class="kv">
+        <dt>Received</dt><dd>{{ lead.created_at | uk("%d %b %Y %H:%M") }}</dd>
+        <dt>Phone</dt><dd>{% if lead.phone %}<a href="tel:{{ lead.phone }}">{{ lead.phone }}</a>{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Email</dt><dd>{% if lead.email %}<a href="mailto:{{ lead.email }}">{{ lead.email }}</a>{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Postcode</dt><dd>{{ lead.postcode or "none" }}{% if lead.region %} <span class="small muted">({{ lead.region }})</span>{% endif %}</dd>
+        <dt>Address</dt><dd>{{ lead.address or "none" }}</dd>
+        <dt>Area</dt><dd>{% if lead.area %}<a href="/admin/areas/{{ lead.area.id }}">{{ lead.area.name }}</a>{% else %}<span class="muted">Not covered</span>{% endif %}</dd>
+        <dt>Partner</dt><dd>{% if lead.partner %}<a href="/admin/partners/{{ lead.partner.id }}">{{ lead.partner.name }}</a>{% elif lead.area and lead.area.is_hq %}Head office{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Source page</dt><dd>{{ lead.source_page or "unknown" }}</dd>
+        <dt>Last updated</dt><dd>{{ lead.updated_at | uk("%d %b %Y %H:%M") or "-" }}</dd>
+      </dl>
+    </section>
+    <section class="panel mt-2">
+      <h2>Everything they submitted</h2>
+      {% if payload %}
+      <table class="data">
+        <tbody>
+        {% for k, v in payload %}<tr><td class="k">{{ k|replace("_", " ") }}</td><td class="payload-val">{{ v }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="muted">No extra fields were submitted.</p>{% endif %}
+    </section>
+  </div>
+  <div>
+    <form method="post" action="/admin/leads/{{ lead.id }}" class="form">
+      <h2 class="mt-0" style="border:0;padding:0">Update</h2>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">{% for st in statuses %}<option value="{{ st }}"{% if lead.status == st %} selected{% endif %}>{{ st|capitalize }}</option>{% endfor %}</select>
+      </div>
+      <div class="field mt-1">
+        <label for="area_id">Area</label>
+        <select id="area_id" name="area_id">
+          <option value="">Not covered</option>
+          {% for a in areas %}<option value="{{ a.id }}"{% if lead.area_id == a.id %} selected{% endif %}>{{ a.name }} ({{ a.status }}){% if a.is_hq %} - head office{% elif a.partner %} - {{ a.partner.name }}{% else %} - no partner{% endif %}</option>{% endfor %}
+        </select>
+        <span class="hint">Reassigning also moves the lead to that area's partner (or head office).</span>
+      </div>
+      <div class="field mt-1">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" rows="6">{{ lead.notes }}</textarea>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+    <section class="panel mt-2">
+      <h2>Timeline</h2>
+      {% if timeline %}
+      <ul class="timeline">
+        {% for entry, email in timeline %}
+        <li><span class="when">{{ entry.created_at | uk("%d %b %Y %H:%M") }} · {{ email or "system" }}</span><br>{{ entry.action|replace("lead.", "")|replace("_", " ")|capitalize }}{% if entry.detail %}: {{ entry.detail }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">No updates yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

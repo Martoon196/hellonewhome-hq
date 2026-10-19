@@ -1,0 +1,92 @@
+<!--
+title: Homes to let
+description: Flats, houses and rooms to let across Swansea, Durham, Andover and London from Hello New Home. Register for alerts and hear about homes before they reach the portals.
+nav: to-let
+-->
+<section class="band-dark page-head">
+  <div class="wrap">
+    <span class="eyebrow">Homes to let</span>
+    <h1>Flats, houses and rooms across our areas</h1>
+    <p class="lede">Every managed home is safe, certificated and let on a written agreement in the legal form for its country. Register below and your local team will tell you about new homes before they go on the portals.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="#alerts">Register for alerts</a>
+      <a class="btn btn-ghost btn-lg" href="tenants.html">How renting works in Wales</a>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="notice" style="margin-bottom:2rem"><strong>Before launch:</strong> replace these example cards with your live listings. The simplest route is to embed your Rightmove or Zoopla agent feed, or link each card to the portal listing. Example cards are marked so nobody mistakes them for real homes.</div>
+    <div class="grid grid-3">
+      <article class="listing">
+        <div class="listing-art"><span class="tag">Example</span>Photo</div>
+        <div class="listing-body">
+          <span class="rent">£950 <small>pcm</small></span>
+          <span class="addr">Two-bed apartment, SA1 Marina</span>
+          <span class="spec">Furnished · Balcony · Allocated parking · Available now</span>
+          <span class="ex">Example listing</span>
+        </div>
+      </article>
+      <article class="listing">
+        <div class="listing-art"><span class="tag">Example</span>Photo</div>
+        <div class="listing-body">
+          <span class="rent">£1,250 <small>pcm</small></span>
+          <span class="addr">Three-bed semi, Sketty</span>
+          <span class="spec">Unfurnished · Garden · Driveway · Available 1 December</span>
+          <span class="ex">Example listing</span>
+        </div>
+      </article>
+      <article class="listing">
+        <div class="listing-art"><span class="tag">Example</span>Photo</div>
+        <div class="listing-body">
+          <span class="rent">£525 <small>pcm, bills included</small></span>
+          <span class="addr">Double room, professional house share, Uplands</span>
+          <span class="spec">En-suite · Fortnightly cleaning · Via hellomyroom</span>
+          <span class="ex">Example listing</span>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band band-blush" id="alerts">
+  <div class="wrap split" style="align-items:start">
+    <div>
+      <span class="eyebrow">Property alerts</span>
+      <h2>Hear first</h2>
+      <p>Tell us what you're after and your local team will message you when something matching comes in. Good homes go in days; being on the list is how you get a viewing before the crowd.</p>
+      <p class="muted">We won't share your details or send anything that isn't a home you asked about.</p>
+    </div>
+    <div>
+      <form class="form" data-enquiry data-subject="Property alert registration">
+        <div class="form-grid">
+          <div class="field"><label for="al_name">Your name</label><input id="al_name" name="name" required autocomplete="name"></div>
+          <div class="field"><label for="al_phone">Mobile (for WhatsApp alerts)</label><input id="al_phone" name="phone" type="tel" required autocomplete="tel"></div>
+          <div class="field full"><label for="al_email">Email</label><input id="al_email" name="email" type="email" autocomplete="email"></div>
+          <div class="field"><label for="al_type">Looking for</label><select id="al_type" name="looking_for"><option>Flat</option><option>House</option><option>Room in a shared house</option><option>Any</option></select></div>
+          <div class="field"><label for="al_beds">Bedrooms</label><select id="al_beds" name="bedrooms"><option>Room</option><option>1</option><option>2</option><option>3</option><option>4+</option></select></div>
+          <div class="field"><label for="al_budget">Maximum rent (£ pcm)</label><input id="al_budget" name="budget" type="number" min="0" step="25"></div>
+          <div class="field"><label for="al_when">Move date</label><input id="al_when" name="move_date" type="month"></div>
+          <div class="field"><label for="al_town">Town or city</label><select id="al_town" name="area" data-label="Area">{{AREA_OPTIONS}}</select></div>
+          <div class="field"><label for="al_areas">Neighbourhoods or postcodes</label><input id="al_areas" name="areas" placeholder="e.g. Uplands, DH1, SE15"></div>
+        </div>
+        <input name="website" hidden tabindex="-1" autocomplete="off">
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Register</button>
+        </div>
+        <p class="form-note">See our <a href="privacy.html">privacy policy</a>.</p>
+      </form>
+      <div class="form-done">
+        <h3>Nearly done. Send it to us.</h3>
+        <p>Tap to send your alert details on WhatsApp or by email. <span data-who></span></p>
+        <div class="cta-row">
+          <a class="btn btn-wa" data-wa href="#" target="_blank" rel="noopener">Send on WhatsApp</a>
+          <a class="btn btn-ghost" data-mail href="#">Send by email</a>
+          <button class="btn btn-ghost" type="button" data-copy>Copy details</button>
+        </div>
+        <pre class="mt-1"></pre>
+      </div>
+    </div>
+  </div>
+</section>

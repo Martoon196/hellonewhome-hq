@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Partner login | Hello New Home</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap">
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="app-body login-body">
+<main class="login-card">
+  <a class="app-brand" href="/"><span class="wordmark">hello<em>new</em>home</span><small>Partner portal</small></a>
+  <h1>Log in</h1>
+  {% if error %}<div class="flash flash-err">{{ error }}</div>{% endif %}
+  <form method="post" action="/partners/login" class="form">
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="username"></div>
+    <div class="field mt-1"><label for="password">Password</label><input id="password" name="password" type="password" required autocomplete="current-password"></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">Log in</button></div>
+  </form>
+  <p class="small muted mt-2">Forgotten your password? Message head office on WhatsApp {{ s.hq_whatsapp_display }} and we'll reset it.</p>
+</main>
+</body>
+</html>

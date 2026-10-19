@@ -1,0 +1,19 @@
+{% extends "app_base.html" %}
+{% set app_name = "Admin" %}
+{% set home_url = "/admin" %}
+{% set logout_url = "/admin/logout" %}
+{% block sidenav %}
+<a href="/admin"{% if section == "dashboard" %} class="is-active"{% endif %}>Dashboard</a>
+<a href="/admin/areas"{% if section == "areas" %} class="is-active"{% endif %}>Areas &amp; postcodes</a>
+<a href="/admin/partners"{% if section == "partners" %} class="is-active"{% endif %}>Partners</a>
+<a href="/admin/leads"{% if section == "leads" %} class="is-active"{% endif %}>Leads</a>
+<a href="/admin/resources"{% if section == "resources" %} class="is-active"{% endif %}>Resources</a>
+<a href="/admin/announcements"{% if section == "announcements" %} class="is-active"{% endif %}>Announcements</a>
+<a href="/admin/territory"{% if section == "territory" %} class="is-active"{% endif %}>Territory checker</a>
+<a href="/admin/settings"{% if section == "settings" %} class="is-active"{% endif %}>Settings</a>
+<a href="/admin/users"{% if section == "users" %} class="is-active"{% endif %}>Admin users</a>
+<a href="/admin/audit"{% if section == "audit" %} class="is-active"{% endif %}>Audit log</a>
+<a href="/" target="_blank" rel="noopener">View site ↗</a>
+<a href="/partners" class="is-admin">Partner portal</a>
+<a href="/partners/password" class="is-admin">Change password</a>
+{% endblock %}

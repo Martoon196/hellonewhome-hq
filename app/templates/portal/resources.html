@@ -1,0 +1,41 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .res-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
+  .res { display: grid; grid-template-columns: 1fr auto; gap: .8rem; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; background: var(--paper); }
+  .res.is-placeholder { opacity: .55; background: var(--mist); }
+  .res h3 { font-size: 1rem; margin: 0 0 .15rem; }
+  .res p { margin: 0; font-size: .9rem; color: var(--muted); }
+  .res .kind { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-left: .4rem; }
+  @media (max-width: 620px) { .res { grid-template-columns: 1fr; } }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Resource library</span>
+  <h1>Resources</h1>
+  <p class="help">Contracts, guides, training and scripts from head office. Items marked coming soon are on the way.</p>
+</div>
+{% for category, items in groups.items() %}
+<section class="panel{% if not loop.first %} mt-2{% endif %}">
+  <h2>{{ category }}</h2>
+  <ul class="res-list">
+    {% for r in items %}
+    <li class="res{% if r.is_placeholder %} is-placeholder{% endif %}">
+      <div>
+        <h3>{{ r.title }}<span class="kind">{{ "document" if r.kind == "file" else r.kind }}</span></h3>
+        {% if r.description %}<p>{{ r.description }}</p>{% endif %}
+      </div>
+      <div>
+        {% if r.is_placeholder %}<span class="chip">Coming soon</span>
+        {% elif r.kind == "file" and r.file_path %}<a class="btn btn-ghost btn-sm" href="/partners/files/{{ r.id }}">Download</a>
+        {% elif r.kind == "link" and r.url %}<a class="btn btn-ghost btn-sm" href="{{ r.url }}" target="_blank" rel="noopener">Open</a>
+        {% elif r.kind == "page" %}<a class="btn btn-ghost btn-sm" href="/partners/resources/{{ r.id }}">Read</a>
+        {% else %}<span class="chip">Coming soon</span>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<section class="panel"><p class="muted">Nothing in the library for your area yet. Head office adds items here as they are ready.</p></section>
+{% endfor %}
+{% endblock %}

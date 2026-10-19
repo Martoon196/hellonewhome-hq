@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Settings | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .todo { border: 2px dashed var(--amber); background: #FFF8EA; border-radius: var(--radius); padding: 1rem 1.2rem; margin-bottom: 1.4rem; }
+  .todo h2 { font-size: 1rem; margin-bottom: .4rem; color: #5A3B05; }
+  .todo ul { margin: 0; padding-left: 1.2rem; font-size: .92rem; }
+  .todo code { background: #fff; padding: .05em .4em; border-radius: 4px; border: 1px solid #F0D9A6; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title"><span class="eyebrow">Site</span><h1>Settings</h1></div>
+{% if placeholders %}
+<div class="todo">
+  <h2>{{ placeholders|length }} placeholder{{ "s" if placeholders|length != 1 else "" }} still showing on the site</h2>
+  <ul>{% for label, value in placeholders %}<li>{{ label }}: <code>{{ value }}</code></li>{% endfor %}</ul>
+</div>
+{% endif %}
+<form method="post" action="/admin/settings" class="form">
+  {% for group_title, fields in groups %}
+  <h2{% if loop.first %} class="mt-0" style="border:0;padding-top:0"{% endif %}>{{ group_title }}</h2>
+  <div class="form-grid">
+    {% for fld in fields %}
+      {% if fld.type == "textarea" %}{{ f.textarea(fld.name, fld.label, fld.value, rows=3) }}
+      {% elif fld.type == "checkbox" %}{{ f.checkbox(fld.name, fld.label, fld.value) }}
+      {% elif fld.type == "number" %}{{ f.text(fld.name, fld.label, fld.value, type="number", attrs='min="0" step="1"') }}
+      {% else %}{{ f.text(fld.name, fld.label, fld.value) }}{% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+  <div class="form-actions"><button class="btn btn-primary" type="submit">Save settings</button></div>
+  <p class="form-note">Anything in square brackets, such as [scheme], is a placeholder and shows on the public site until replaced.</p>
+</form>
+{% endblock %}

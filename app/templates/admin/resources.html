@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Resources | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .badge-placeholder { background: #FFF1C9; color: #7A5200; }
+  .cat-head { display: flex; align-items: baseline; gap: .8rem; margin: 1.6rem 0 .6rem; }
+  .cat-head:first-child { margin-top: 0; }
+  .cat-head h2 { margin: 0; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Partner library</span>
+  <h1>Resources</h1>
+  <div class="actions"><a class="btn btn-primary btn-sm" href="/admin/resources/new">Add resource</a></div>
+</div>
+<section class="panel">
+  <p class="help">{{ total }} resource{{ "s" if total != 1 else "" }}, {{ placeholder_count }} still placeholder{{ "s" if placeholder_count != 1 else "" }}. Placeholders show partners what is coming but have nothing to open yet.</p>
+  {% for category, items in groups %}
+  <div class="cat-head"><h2>{{ category }}</h2><span class="help">{{ items|length }}</span></div>
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>Title</th><th>Kind</th><th>Visible to</th><th>Sort</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for r in items %}
+    <tr>
+      <td><a href="/admin/resources/{{ r.id }}"><strong>{{ r.title }}</strong></a>{% if r.description %}<br><span class="small muted">{{ r.description|truncate(110) }}</span>{% endif %}</td>
+      <td>{{ r.kind }}{% if r.kind == "file" and r.file_path %}<br><a class="small" href="/files/{{ r.id }}">download</a>{% elif r.kind == "link" and r.url %}<br><a class="small" href="{{ r.url }}" target="_blank" rel="noopener">open</a>{% endif %}</td>
+      <td>{% if r.visibility == "all" %}All partners{% elif r.visibility == "region" %}{{ "Wales" if r.region == "wales" else "England" }}{% else %}{{ area_names.get(r.area_id, "an area that no longer exists") }}{% endif %}</td>
+      <td>{{ r.sort }}</td>
+      <td>{% if r.is_placeholder %}<span class="status badge-placeholder">Placeholder</span>{% else %}<span class="status status-active">Ready</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">No resources yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .res-body { max-width: 72ch; }
+  .res-body h2 { font-size: 1.3rem; margin-top: 1.6rem; }
+  .res-body h3 { font-size: 1.1rem; margin-top: 1.2rem; }
+  .res-body img { max-width: 100%; height: auto; border-radius: 10px; }
+  .res-body table { min-width: 0; }
+  .res-body pre { white-space: pre-wrap; background: var(--mist); padding: .8rem; border-radius: 10px; }
+</style>{% endblock %}
+{% block content %}
+<p class="small"><a href="/partners/resources">Resource library</a></p>
+<div class="page-title">
+  <span class="eyebrow">{{ r.category }}</span>
+  <h1>{{ r.title }}</h1>
+  {% if r.description %}<p class="lede">{{ r.description }}</p>{% endif %}
+</div>
+<section class="panel">
+  {% if r.is_placeholder %}
+  <p class="muted">Coming soon. Head office is still preparing this item.</p>
+  {% elif r.kind == "page" %}
+  {% if body %}<div class="res-body">{{ body }}</div>{% else %}<p class="muted">This page has no content yet.</p>{% endif %}
+  {% elif r.kind == "file" and r.file_path %}
+  <p><a class="btn btn-primary" href="/partners/files/{{ r.id }}">Download</a></p>
+  {% elif r.kind == "link" and r.url %}
+  <p><a class="btn btn-primary" href="{{ r.url }}" target="_blank" rel="noopener">Open in a new tab</a></p>
+  <p class="help">{{ r.url }}</p>
+  {% else %}
+  <p class="muted">Nothing attached to this item yet.</p>
+  {% endif %}
+  <p class="small muted mt-2">Updated {{ r.updated_at | uk("%d %b %Y") }}</p>
+</section>
+{% endblock %}

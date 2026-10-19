@@ -1,0 +1,679 @@
+{
+  "meta": {
+    "version": "0.1",
+    "prepared": "19 October 2026",
+    "source_of_truth": "offer/OFFER-ARCHITECTURE.md (fees and promises), marketing/brand-voice.md (voice), national/AREA-LAUNCH-KIT.md (per-area kit, which these templates extend)",
+    "fees_status": "Every fee below is copied exactly from OFFER-ARCHITECTURE.md and remains [CONFIRM] until the founder signs the fee sheet. The portal must not render fee-bearing templates to partners until HQ has marked fees as confirmed. No VAT is added to any fee and no template may carry VAT wording of any kind.",
+    "fees": {
+      "tenant_find": "£495, no let no fee",
+      "full_management": "12% of rent, capped at £150 a month; setup £295, waived when switching an existing tenancy",
+      "managed_plus": "Full Management fee plus £25 a month (rent guarantee and legal expenses cover)",
+      "hmo_management": "15% of gross room rent (via hellomyroom); room let-only £249 per room",
+      "sa_launch": "£495, waived with 12 months of Full SA Management",
+      "full_sa_management": "18% of net booking revenue, cleaning passed through at cost",
+      "sa_co_host": "12% of net booking revenue",
+      "flex_switch": "Included",
+      "no_lock_in": "Leave with 30 days' notice, no exit fee",
+      "switch_offer": "First three months of Full Management fee-free when moving a tenanted property from another agent; 25 places a quarter",
+      "sa_backstop": "If net owner income in the first 90 days of Full SA Management is below the owner's documented previous 90 days (same season), that quarter's management fee is refunded; units with six or more months of history only",
+      "partner": "No buy-in for the founding cohort. Introducer: 25% of net management fee plus £100 per SA unit live. Area Partner: 50% on own instructions, 25% on serviced head-office leads, £99 a month systems fee from month four. Worked examples are always labelled illustrative."
+    },
+    "tokens": [
+      "{{area}}",
+      "{{covers}}",
+      "{{partner}}",
+      "{{partner_first}}",
+      "{{whatsapp_display}}",
+      "{{whatsapp_link}}",
+      "{{phone}}",
+      "{{area_url}}",
+      "{{rent_avg}}",
+      "{{rent_change}}",
+      "{{place_1}}",
+      "{{place_2}}",
+      "{{place_3}}",
+      "{{region_law}}",
+      "{{month}}",
+      "{{year}}"
+    ],
+    "token_notes": {
+      "{{region_law}}": "Renders as 'Rent Smart Wales licensed' in Wales or 'Redress scheme and client money protected' in England. It is the only legal proof phrase in any template; no template names Rent Smart Wales, the Renters' Rights Act or the Renting Homes Act unless the item carries a matching region field.",
+      "{{rent_avg}}": "The ONS average monthly rent for the area as a formatted figure, for example £650. Templates never compute a fee from it; the fee is always stated as 12% capped at £150.",
+      "{{rent_change}}": "The year-on-year change as a short phrase that reads after a figure, for example 'up 7.9%'.",
+      "{{whatsapp_link}}": "A wa.me link to the partner's number. Used at most once per Facebook post.",
+      "{{area_url}}": "The area page. The portal appends UTMs (utm_source, utm_medium, utm_campaign=area-slug) at render time; templates carry none."
+    },
+    "render_rules": [
+      "British English, no exclamation marks, no emojis in flyers, letters, GBP or scripts; at most one emoji in a Facebook post (none are used here).",
+      "Region fields: 'england', 'wales' or 'both'. The portal renders only items whose region matches the area's region or is 'both'. Items with pillar 'london' render only for London zones.",
+      "Letters and flyers carry no property-address token. Where a piece is addressed to one property, the portal's print step adds the address block above the greeting.",
+      "GBP description, services and posts must be re-measured after rendering: the limits below are checked on the template text, and long area names or partner names add characters.",
+      "Nothing here is legal advice. Dates and penalties are those verified in research/ENGLAND-REGIME-AND-AREAS.md and marketing/articles on 16 October 2026; anything the research note marks [VERIFY] keeps that mark here."
+    ]
+  },
+  "flyers": [
+    {
+      "id": "a5-landlord",
+      "title": "A5 landlord leaflet (letterbox, counter, networking)",
+      "size": "A5",
+      "region": "both",
+      "print_notes": "350gsm matt. Charcoal front, cream back. QR to {{area_url}} on both sides. The front must work on its own from a doormat.",
+      "front_html": "<h1 class=\"flyer-head\">Your {{area}} property, managed.</h1><h2 class=\"flyer-head\">Fee capped. No lock-in. No VAT.</h2><p class=\"flyer-body\"><strong>12% of rent, capped at £150 a month.</strong> Leave with 30 days' notice. No exit fee.</p><p class=\"flyer-body\">{{partner_first}} on the ground in {{area}}. Head office does the contracts, the money and the compliance calendar.</p><p class=\"flyer-body\">{{region_law}} · PolicyBee insured · Vouch and Goodlord referencing</p><h3 class=\"flyer-head\">Free Rent Review in one working day</h3><p class=\"flyer-body\">Scan the code or go to {{area_url}}. WhatsApp {{whatsapp_display}} with \"rent review\" and the address, or call {{phone}}.</p><p class=\"flyer-foot\">Hello New Home · Consider Yourself Moved</p>",
+      "back_html": "<h2 class=\"flyer-head\">What a capped fee buys you</h2><ul class=\"flyer-body\"><li>Tenant find and referencing (Vouch and Goodlord), the written agreement the law requires, deposit registered</li><li>Rent collected, arrears chased, 24/7 repairs line for your tenant</li><li>Quarterly inspections with photos, by {{partner_first}}</li><li>Compliance calendar: gas, electrical, EPC, alarms and any licence, booked before they are due</li><li>Annual rent review and a year-end statement</li></ul><h3 class=\"flyer-head\">Three ways in</h3><ul class=\"flyer-body\"><li><strong>Tenant Find</strong> £495, no let no fee</li><li><strong>Full Management</strong> 12%, capped at £150 a month</li><li><strong>Managed+ with rent guarantee</strong> Full Management fee plus £25 a month</li></ul><p class=\"flyer-body\"><strong>Switching from another agent?</strong> First three months of Full Management free, £295 setup waived, handover done for you. 25 places a quarter.</p><p class=\"flyer-body\"><strong>Shared house?</strong> Our HMO arm hellomyroom manages room by room. <strong>Short let?</strong> We run serviced accommodation in {{area}} and can switch a property between short let and tenancy without re-onboarding.</p><h3 class=\"flyer-head\">Start with a Free Rent Review</h3><p class=\"flyer-body\">Scan the code or WhatsApp {{whatsapp_display}} with \"rent review\" and the address. An honest figure and a written fee comparison within one working day. No obligation.</p><p class=\"flyer-foot\">Hello New Home Letting Agents · Head office: Central Business Park, Swansea SA7 0AG · Local Partner for {{area}}: {{partner}} · {{phone}} · lettings@hellonewhome.co.uk · {{region_law}}</p>"
+    },
+    {
+      "id": "a5-short-let-owner",
+      "title": "A5 short-let owner leaflet (hosts, holiday-let owners, second homes)",
+      "size": "A5",
+      "region": "both",
+      "print_notes": "350gsm matt. Pink front, cream back. QR to {{area_url}}. Never quote a listing, a nightly rate or a review score.",
+      "front_html": "<h1 class=\"flyer-head\">Long let or short let?</h1><h2 class=\"flyer-head\">See both numbers for your {{area}} address.</h2><p class=\"flyer-body\">A short let can gross more. Then platform fees, cleaning, linen, utilities, empty weeks and management come off the top. Most owners compare the headline numbers and get the decision wrong in one direction or the other.</p><p class=\"flyer-body\">Hello New Home is a letting agent that also runs serviced accommodation, so we can put your property side by side, net of every cost, and tell you honestly which one wins.</p><h3 class=\"flyer-head\">Free SA Income Appraisal</h3><p class=\"flyer-body\">Scan the code or go to {{area_url}}. WhatsApp {{whatsapp_display}} with \"appraisal\" and the address. Back within three working days.</p><p class=\"flyer-foot\">Hello New Home · {{region_law}} · {{partner_first}} on the ground in {{area}}</p>",
+      "back_html": "<h2 class=\"flyer-head\">What the appraisal checks</h2><ul class=\"flyer-body\"><li>Your property as a long let and as a short let, after platform fees, cleaning, utilities, voids and management, using {{area}} occupancy and nightly rates, not a national average</li><li>A legality check for the address: the business-rates night test, the council tax position, planning, the short-let register, and in London the 90-night rule</li><li>If the long let wins, we say so and manage that instead</li></ul><h3 class=\"flyer-head\">If the short let wins</h3><ul class=\"flyer-body\"><li><strong>Full SA Management</strong> 18% of net booking revenue, cleaning at cost. Dynamic pricing, guest vetting, 24/7 guest messaging, cleaning and linen coordination, restocking, maintenance, reviews, a monthly owner statement with the night count built in</li><li><strong>SA Co-Host</strong> 12%. Pricing, guest messages and the listing; you keep your own cleaner</li><li><strong>SA Launch</strong> £495, waived with 12 months of Full SA Management. Photography, listings, direct-booking page, pricing rules, house manual, compliance pack</li><li><strong>Flex Switch</strong> included. Move between short let and tenancy with the same agent, no re-onboarding</li></ul><p class=\"flyer-body\">Leave with 30 days' notice, no exit fee. Hosted six months or more? If your net income in the first 90 days with us is below your documented previous 90 days for the same season, that quarter's management fee is refunded.</p><p class=\"flyer-foot\">Hello New Home Letting Agents · Head office Swansea SA7 0AG · Local Partner for {{area}}: {{partner}} · {{phone}} · WhatsApp {{whatsapp_display}} · {{region_law}}</p>"
+    },
+    {
+      "id": "a4-landlord-letter",
+      "title": "A4 landlord letter (unaddressed letterbox drop in rented streets)",
+      "size": "A4",
+      "region": "both",
+      "print_notes": "One side of letterhead; the back carries the fee sheet. Hand-signed by the partner in blue where volume allows; countersigned 'for Hello New Home' by head office. The print step adds a date line under the letterhead.",
+      "front_html": "<h2 class=\"flyer-head\">Hello New Home Letting Agents</h2><p class=\"flyer-body\">Head office: Unit 54, First Floor, Menzies Distribution, Mill Stream Way, Central Business Park, Swansea SA7 0AG · {{phone}} · lettings@hellonewhome.co.uk</p><p class=\"flyer-body\">Local Partner, {{area}}: {{partner}} · WhatsApp {{whatsapp_display}}</p><p class=\"flyer-body\">{{month}} {{year}}</p><p class=\"flyer-body\"><strong>To the owner of this property</strong></p><p class=\"flyer-body\">Dear landlord,</p><p class=\"flyer-body\">We understand this property is let. If you are paying an agent a percentage of the rent, that percentage has probably gone up with the rent and the service has probably stayed where it was. If you are managing it yourself, you have a set of legal dates to keep and a phone that rings at the wrong times.</p><p class=\"flyer-body\">Either way, this letter is about one number: <strong>£150 a month</strong>.</p><p class=\"flyer-body\">Hello New Home manages properties in {{area}} for 12% of rent, capped at £150 a month, with no VAT added. Average rent round here is {{rent_avg}} ({{rent_change}} on a year ago); whatever yours lets for, the fee stops at £150. Inside the fee: finding and referencing the tenant through Vouch and Goodlord, the written agreement the law requires, deposit registration, rent collection and arrears chasing, a 24/7 repairs line, quarterly inspections by me, an annual rent review, a year-end statement, and a compliance calendar that books the gas, electrical, EPC, alarm and licence dates before they are due.</p><p class=\"flyer-body\">Two things we don't do. We don't tie you in: you can leave with 30 days' notice and no exit fee. And we don't give you an inflated rent figure to win the instruction: we give you the figure we would market at.</p><p class=\"flyer-body\">If the property is already tenanted with another agent, we buy the switching cost: your first three months of Full Management are fee-free and the £295 setup fee is waived. We handle the notice, the deposit transfer, the paperwork and the introduction to your tenant. Limited to 25 landlords a quarter so each handover is done properly.</p><p class=\"flyer-body\">Hello New Home: {{region_law}}, PolicyBee insured. Contracts, money and compliance are run from head office in Swansea. I live and work in {{area}} and do the viewings, inspections and check-ins myself, across {{covers}}.</p><h3 class=\"flyer-head\">What to do next</h3><p class=\"flyer-body\">Ask for a Free Rent Review. Go to {{area_url}}, or WhatsApp {{whatsapp_display}} with \"rent review\" and the address. Within one working day you will have an honest rent figure and, if you want it, a written fee comparison against what you pay now. No obligation, and the figure is yours whether or not you use us.</p><p class=\"flyer-body\">Yours sincerely,</p><p class=\"flyer-body\"><strong>{{partner}}</strong>, Local Partner for {{area}}, Hello New Home</p><p class=\"flyer-body\">PS. If your current agreement still has months to run, send a photo of it on WhatsApp and head office will tell you your earliest clean exit date and whether it is worth waiting. That is free too.</p><p class=\"flyer-foot\">If you would rather not hear from us about this property again, reply \"no thanks\" to the WhatsApp number or email lettings@hellonewhome.co.uk and we will remove the address from our list.</p>",
+      "back_html": "<h2 class=\"flyer-head\">The fee sheet, in full</h2><ul class=\"flyer-body\"><li><strong>Free Rent Review</strong> An honest rent figure within one working day, with a written fee comparison if you want one. Free.</li><li><strong>Tenant Find</strong> £495, no let no fee. Photos, Rightmove, Zoopla and OnTheMarket, viewings, Vouch and Goodlord referencing, the written agreement, deposit registration, move-in inventory.</li><li><strong>Full Management</strong> 12% of rent, capped at £150 a month. Setup £295, waived when switching a tenanted property. Everything in Tenant Find plus rent collection, arrears chasing, 24/7 repairs line, quarterly inspections, compliance calendar, annual rent review, year-end statement.</li><li><strong>Managed+ Rent Guarantee</strong> Full Management fee plus £25 a month. Rent guarantee and legal expenses cover (Goodlord or Vouch) and possession handling.</li><li><strong>HMO Management</strong> 15% of gross room rent, through hellomyroom. Room let-only £249 per room.</li><li><strong>Full SA Management</strong> 18% of net booking revenue, cleaning at cost. SA Co-Host 12%. SA Launch £495, waived with 12 months of Full SA Management.</li><li><strong>Flex Switch</strong> Included. Move a managed property between long let, shared house and short let without re-onboarding.</li><li><strong>No lock-in</strong> 30 days' notice, no exit fee, on every service.</li></ul><p class=\"flyer-body\">No VAT is added to any fee. No renewal fee, no inspection fee, no \"admin\". If you find a charge that is not on this sheet, tell head office, because it would be our problem, not yours.</p><p class=\"flyer-foot\">Hello New Home Letting Agents · {{region_law}} · PolicyBee insured · Vouch and Goodlord referencing · {{phone}} · {{area_url}}</p>"
+    },
+    {
+      "id": "a6-door-card",
+      "title": "A6 \"sorry we missed you\" door card",
+      "size": "A6",
+      "region": "both",
+      "print_notes": "Thick card so it does not fold in the letterbox. Side A for the occupier, side B for the owner. Handwritten date, time and initials in the box.",
+      "front_html": "<h1 class=\"flyer-head\">Sorry we missed you.</h1><p class=\"flyer-body\">{{partner_first}} from Hello New Home called today about the letting of this property.</p><p class=\"flyer-body\"><strong>If you rent this home:</strong> nothing is changing for you, and this card is not about your tenancy. If you are happy to, pass it to your landlord or let them know Hello New Home called. Thank you.</p><p class=\"flyer-body\"><strong>If you own this home:</strong> turn the card over.</p><p class=\"flyer-body\">Called by: ______ Date: ______ Time: ______</p><p class=\"flyer-foot\">Hello New Home Letting Agents · Local Partner for {{area}}: {{partner}} · {{phone}} · WhatsApp {{whatsapp_display}}</p>",
+      "back_html": "<h2 class=\"flyer-head\">Own this property?</h2><p class=\"flyer-body\">We are a letting agent with a management fee capped at £150 a month (12% up to the cap, no VAT), no 12-month tie-in, and a compliance calendar that keeps the gas, electrical, alarm and licence dates for you. {{partner_first}} does the viewings and inspections here in {{area}}; head office does the contracts and the money.</p><p class=\"flyer-body\"><strong>Free Rent Review, one working day.</strong> Scan the code, go to {{area_url}}, or WhatsApp {{whatsapp_display}} with \"rent review\" and the address. Honest figure, no obligation.</p><p class=\"flyer-body\">{{region_law}} · PolicyBee insured</p><p class=\"flyer-foot\">Rather not hear from us? WhatsApp \"no thanks\" and we will remove the address.</p>"
+    },
+    {
+      "id": "a5-homes-wanted",
+      "title": "A5 \"homes wanted\" window card (shop windows, community boards, the partner's car)",
+      "size": "A5",
+      "region": "both",
+      "print_notes": "Side A faces the street and speaks to landlords; side B is for a second window or a noticeboard and speaks to people looking for a home. Laminate for windows. Replace {{month}} {{year}} each month so the card never looks stale.",
+      "front_html": "<h1 class=\"flyer-head\">Homes wanted in {{area}}</h1><p class=\"flyer-body\">People register their search with us every week for {{place_1}}, {{place_2}} and {{place_3}}. If you have a house or flat to let anywhere across {{covers}}, we would like to talk.</p><ul class=\"flyer-body\"><li><strong>Tenant Find</strong> £495, no let no fee</li><li><strong>Full Management</strong> 12% of rent, capped at £150 a month, no VAT</li><li>Leave with 30 days' notice. No exit fee.</li></ul><p class=\"flyer-body\">An honest rent figure in one working day: WhatsApp {{whatsapp_display}} with \"rent review\" and the address, or go to {{area_url}}.</p><p class=\"flyer-foot\">Hello New Home · {{region_law}} · Local Partner for {{area}}: {{partner}} · {{month}} {{year}}</p>",
+      "back_html": "<h1 class=\"flyer-head\">Looking for a home in {{area}}?</h1><p class=\"flyer-body\">Tell us what you need and where, and we will call you when something fits, rather than you refreshing the portals.</p><ul class=\"flyer-body\"><li>A holding deposit never more than one week's rent</li><li>Your deposit protected within 30 days, with the certificate sent to you</li><li>A written agreement you can read before you commit</li><li>A 24/7 repairs line that answers</li><li>{{partner_first}}, a real person in {{area}}, for viewings and move-in</li></ul><p class=\"flyer-body\">Register your search at {{area_url}} or WhatsApp {{whatsapp_display}} with the area, the number of bedrooms and your move date.</p><p class=\"flyer-foot\">Hello New Home · Consider Yourself Moved · {{region_law}} · {{phone}}</p>"
+    }
+  ],
+  "fb_posts": [
+    {
+      "id": "intro-partner",
+      "pillar": "relaunch",
+      "region": "both",
+      "title": "Introduction to the group",
+      "text": "Hello {{area}}. I'm {{partner}}; some of you will know me from around {{place_1}}. From this month I'm the Local Partner for Hello New Home, the letting agents, covering {{covers}}.\n\nIf you own a rental round here, two things worth knowing. The management fee is capped at £150 a month (12% up to that cap, no VAT), and there is no 12-month lock-in: 30 days' notice, no exit fee. If you're on a higher percentage with extras on top, it's worth ten minutes to compare.\n\nI'm not going to fill the group with adverts. Head office in Swansea does the contracts, the deposits and the money; I do the viewings, inspections and check-ins here. Happy to answer any lettings question in the comments.\n\nIf you'd like a free, written rent review, the link is on our {{area}} page: {{area_url}}",
+      "image_hint": "The partner, head and shoulders, standing on a named street in {{place_1}} in daylight. No stock imagery. Optional: Hello New Home lanyard or folder in shot."
+    },
+    {
+      "id": "intro-who-does-what",
+      "pillar": "relaunch",
+      "region": "both",
+      "title": "What a Local Partner does, and what head office does",
+      "text": "A few people asked after my last post, so here's the honest shape of it.\n\nMe, in {{area}}: viewings, quarterly inspections with photos, check-ins and check-outs, meeting the tenant, meeting the gas engineer, walking the street when a board goes up.\n\nHead office in Swansea: the written agreement, deposit registration, rent collection and arrears chasing, the 24/7 repairs line, the compliance calendar for gas, electrical, EPC, alarms and any licence, the year-end statement, and holding your money. Hello New Home: {{region_law}}, PolicyBee insured.\n\nYour agreement is with Hello New Home, not with me personally. If I were hit by a bus tomorrow your property would still be managed exactly the same, which is the point.\n\nQuestions welcome below. Fee sheet and rent review on the area page: {{area_url}}",
+      "image_hint": "Two-column graphic, charcoal background, Lato: left column 'In {{area}}: {{partner_first}}', right column 'Head office: contracts, money, compliance'. Five short lines each."
+    },
+    {
+      "id": "capped-fee-question",
+      "pillar": "capped-fee",
+      "region": "both",
+      "title": "The all-in fee question",
+      "text": "Honest question for {{area}} landlords: what are you paying all-in to have a property managed, once renewal fees, inspection fees and \"admin\" are added?\n\nI ask because I'm the {{area}} Local Partner for Hello New Home and the fee is 12% of rent, capped at £150 a month, no VAT, with nothing added. Setup is waived if you're switching an existing tenancy, and it's 30 days' notice to leave.\n\nNot posting to argue with anyone's agent. If you want a side-by-side on your own numbers, head office does a free written rent review within one working day: {{area_url}}",
+      "image_hint": "Plain text graphic, cream background: 'Percentage + renewal fee + inspection fee + admin = ?' on one line, '12%, capped at £150. Full stop.' beneath in pink."
+    },
+    {
+      "id": "capped-fee-local-maths",
+      "pillar": "capped-fee",
+      "region": "both",
+      "title": "What the cap means on a {{area}} rent",
+      "text": "Average rent in {{area}} is {{rent_avg}}, {{rent_change}} on a year ago. Every time that figure moves, a percentage fee moves with it.\n\nOurs is 12% of rent and it stops at £150 a month. Below the cap you pay 12%. Above it you pay £150, and the saving grows with the rent. No VAT on top, no renewal fee, no inspection fee.\n\nIncluded for that: tenant find and referencing, the written agreement, deposit registration, rent collection and arrears chasing, a 24/7 repairs line, quarterly inspections by me, a compliance calendar, an annual rent review and a year-end statement.\n\nIf you'd like the figure for your own property rather than the average, the free rent review is here: {{area_url}}",
+      "image_hint": "Line graph, charcoal background: a pink line rising with rent on the x-axis, then flat at £150. Caption on the graphic: 'Our fee. Flat from here.' Add '{{area}} average rent {{rent_avg}}' as a small marker."
+    },
+    {
+      "id": "no-lock-in",
+      "pillar": "no-lock-in",
+      "region": "both",
+      "title": "Why we can say 30 days' notice",
+      "text": "Most management agreements tie you in for 12 months, sometimes with a fee to leave early. Ours is 30 days' notice, no exit fee, from day one.\n\nWe can say that because the fee is published in full and the service is the same every month: rent in, statement out, repairs answered, inspections done, certificates booked before they are due. If we stop doing that, you leave. We would rather keep you because it is working than because of a clause.\n\nIf your current agreement has months to run, that is fine; we don't ask anyone to break one. Send head office a photo of it and they will tell you your earliest clean exit date, free: {{area_url}}",
+      "image_hint": "Photo of a plain front door in {{place_2}} with the number blurred; overlay text '30 days' notice. No exit fee.'"
+    },
+    {
+      "id": "switch-offer",
+      "pillar": "switch",
+      "region": "both",
+      "title": "Switching agent with a tenant in place",
+      "text": "If your {{area}} property is tenanted with another agent and you have been meaning to move it, here is what the handover looks like with us.\n\nHead office drafts the notice to your current agent, transfers and re-protects the deposit, checks the paperwork against the current rules, and introduces us to your tenant, whose only change is the repairs number. I do the handover visit in person.\n\nYour first three months of Full Management are fee-free and the £295 setup fee is waived. After that it is 12%, capped at £150 a month, no VAT, with 30 days' notice to leave. The offer is limited to 25 landlords a quarter so each handover is done properly, which is why I'm mentioning it rather than running an advert.\n\nStart with your current renewal date and the address: {{area_url}}",
+      "image_hint": "Simple checklist graphic, cream background: 'Notice drafted · Deposit transferred · Paperwork checked · Tenant introduced · First three months fee-free'."
+    },
+    {
+      "id": "england-what-changed-1-may",
+      "pillar": "landlord-education",
+      "region": "england",
+      "title": "What changed for landlords on 1 May 2026",
+      "text": "If you let a property in {{area}} and have not looked at the rules since last year, this is the short version of what changed on 1 May 2026.\n\nEvery tenancy is now periodic; fixed terms have gone. Tenants can leave on two months' notice. Section 21 no-fault notices have gone; possession runs through the Section 8 grounds. Rent can go up once a year, by notice, with two months' warning, and the tenant can challenge it at a tribunal. Before a new tenancy starts you must give a written statement of terms; the council can fine you up to £7,000 for missing it. The landlord database opens on 15 December 2026, region by region, with every landlord registered by 14 November 2027 [VERIFY].\n\nNone of it is hard. It is dates and forms, and dates get missed around a day job. Hello New Home runs the calendar for every property it manages; I do the inspections here.\n\nIf you self-manage, download the free {{area}} Landlord Compliance Checklist from the area page. It is the list we use: {{area_url}}",
+      "image_hint": "Calendar-style graphic with '1 May 2026' circled in pink and five short lines beneath: periodic tenancies, no Section 21, rent once a year, written statement, landlord database."
+    },
+    {
+      "id": "england-five-dates",
+      "pillar": "landlord-education",
+      "region": "england",
+      "title": "Five things English law expects from a landlord",
+      "text": "Five things the law now expects from you if you let a home in {{area}}, and what happens when one slips.\n\n1. A written statement of terms before every new tenancy starts. Miss it and the council can fine you up to £7,000.\n2. A Right to Rent check on every adult before they move in. Civil penalties run to £10,000 per occupier, £20,000 for a repeat [VERIFY].\n3. The deposit protected within 30 days with the prescribed information, and never more than five weeks' rent.\n4. Gas safety every year, an electrical report at least every five years, a smoke alarm on every storey, a carbon monoxide alarm wherever there is a fixed gas appliance.\n5. A council licence where your council runs a scheme for your street or your property type.\n\nHead office keeps all five on a calendar for every managed property; I do the inspections in {{area}}. Full Management is 12%, capped at £150 a month, no VAT.\n\nNot ready to hand it over? The checklist is free on the area page: {{area_url}}",
+      "image_hint": "Numbered list graphic, charcoal background, five lines in Lato, the penalties in pink."
+    },
+    {
+      "id": "england-landlord-database",
+      "pillar": "landlord-education",
+      "region": "england",
+      "title": "The landlord database, in plain English",
+      "text": "From 15 December 2026 the private rented sector database opens in England, region by region, and every landlord has to be registered by 14 November 2027 [VERIFY on gov.uk]. You register yourself and each property, pay a fee, and keep the entry current. Letting without an entry becomes an offence once your region's deadline has passed.\n\nWhat it means in practice for {{area}}: another date on the calendar, and a public record that councils and tenants can check. If you already keep gas, electrical, EPC and deposit paperwork in order, registration is an afternoon.\n\nIf you'd rather not keep a calendar at all, that is what Full Management is for, 12% capped at £150 a month. Either way the free checklist on the area page has the dates: {{area_url}}",
+      "image_hint": "Photo of a kitchen-table laptop with a blank form, no brand visible; overlay '15 December 2026: the database opens.'"
+    },
+    {
+      "id": "wales-contract-holder",
+      "pillar": "landlord-education",
+      "region": "wales",
+      "title": "14 days, and what happens if you miss them",
+      "text": "If you let a home in {{area}}, your tenant is a contract-holder, that is what Wales calls a tenant, and the agreement is an occupation contract. You have 14 days from the start of the contract to give them the written statement.\n\nMiss it and two things happen. The contract-holder can claim compensation for every day it is late, and you cannot serve a landlord's notice to end the contract until six months after you finally hand it over. A missing piece of paper on day one can cost you a year later.\n\nHead office issues the written statement on every managed property before the keys are handed over, and I do the move-in here in {{area}}. If you self-manage, the free Landlord Compliance Checklist on the area page has the Renting Homes (Wales) Act dates on one side: {{area_url}}",
+      "image_hint": "Graphic, charcoal background: a large '14' in pink with 'days to issue the written statement' beneath, and a smaller '6 months' with 'before you can serve notice if you miss it'."
+    },
+    {
+      "id": "wales-rent-smart-wales",
+      "pillar": "landlord-education",
+      "region": "wales",
+      "title": "3,198 penalties, almost all for the same two things",
+      "text": "Rent Smart Wales issued 3,198 fixed penalties in the year to May 2026, and almost all of them were for the same two things: not being registered as a landlord, and letting a property without a licence or a licensed agent.\n\nBoth have a simple fix. Registration is a form. The licence is a training course and an application, or you instruct a licensed agent and the agent requirement is met that way.\n\nHello New Home is a Rent Smart Wales licensed agent, so instructing us satisfies the agent licence for your {{area}} property, and the compliance calendar then keeps the renewal dates. If you want to stay self-managing, register and take the course; it is cheaper than the penalty.\n\nUnsure which you need for your situation? Ask in the comments or use the free rent review on the area page and head office will tell you: {{area_url}}",
+      "image_hint": "Plain text graphic, cream background: '3,198 fixed penalties. Two causes. Two fixes.' with the Rent Smart Wales logo omitted (not ours to use)."
+    },
+    {
+      "id": "wales-alarms-electrics",
+      "pillar": "landlord-education",
+      "region": "wales",
+      "title": "Mains-wired, interlinked, every storey",
+      "text": "Three fitness requirements that catch {{area}} landlords out under the Renting Homes (Wales) Act.\n\nSmoke alarms: mains-powered, interlinked, on every storey. Battery alarms from the DIY shop do not meet the standard. Carbon monoxide: an alarm in every room with a gas, oil or solid-fuel appliance. Electrics: an electrical condition report at least every five years, with a copy to the contract-holder.\n\nA home that fails these is treated as unfit for human habitation, and you cannot rely on a landlord's notice to end the contract while it is unfit. That is a big consequence for a £40 alarm.\n\nHead office books the electrician and the alarm fit on the compliance calendar for every managed property, and I check them on the quarterly inspection. The free checklist on the area page lists all of the fitness points: {{area_url}}",
+      "image_hint": "Close-up photo of a ceiling smoke alarm with the interlink light visible; overlay 'Mains. Interlinked. Every storey.'"
+    },
+    {
+      "id": "sa-appraisal",
+      "pillar": "short-let-appraisal",
+      "region": "both",
+      "title": "Long let or short let in {{area}}?",
+      "text": "If you have a flat or a house in {{place_1}}, {{place_2}} or {{place_3}} you have probably wondered whether it would make more as a short let, or if it already is one, whether it is still worth it.\n\nNobody can tell you honestly unless they run both. A long let gives you one rent and one tenant. A short let can gross more, and then platform fees, cleaning, linen, utilities, empty weeks and management come off the top. Most people compare the headline numbers and get the decision wrong in one direction or the other.\n\nHello New Home does both, so head office will run a free SA Income Appraisal: your property as a long let versus a short let, net of everything, using {{area}} occupancy and nightly rates, plus a legality check for the address. Sometimes the answer is \"stay as you are\". Sometimes it is a few hundred pounds a month either way. If the long let wins, we say so.\n\nI'm {{partner}}, the Local Partner for {{area}}. The appraisal form is on the area page: {{area_url}}",
+      "image_hint": "Two-column graphic, charcoal: 'Long let' and 'Short let' headers with blank pound lines beneath and 'net of every cost' at the foot. No invented figures."
+    },
+    {
+      "id": "sa-hands-off",
+      "pillar": "short-let-appraisal",
+      "region": "both",
+      "title": "11.40pm. The key safe code isn't working.",
+      "text": "11.40pm. \"Hi, the key safe code isn't working.\" You're in bed. Your cleaner is in bed. The guest is on the doorstep in {{place_2}}.\n\nThat is self-hosting. It is a second job that pays in reviews.\n\nFull SA Management with Hello New Home covers dynamic pricing, guest vetting, 24/7 guest messaging, cleaning and linen coordination, restocking, maintenance, reviews, and a monthly owner statement with the night count built in. The fee is 18% of net booking revenue, cleaning passed through at cost, no VAT, and you can leave with 30 days' notice. If you would rather keep your own cleaner and only lose the messaging and the pricing, SA Co-Host is 12%.\n\nI'm here in {{area}} for changeovers and the things that need a person; head office handles the messages at 11.40pm. And because we manage long lets too, if the short-let numbers ever stop working we move you to a tenancy without re-onboarding.\n\nFree appraisal first, so you know what hands-off actually nets on your property: {{area_url}}",
+      "image_hint": "Photo of a key safe on a brick wall at night, phone torch light; overlay '11.40pm. We answer.'"
+    },
+    {
+      "id": "wales-visitor-register",
+      "pillar": "short-let-appraisal",
+      "region": "wales",
+      "title": "Short let in Wales? Register by 31 March 2027",
+      "text": "If your {{area}} property takes paying guests for stays of 31 nights or less, you need to be on the Welsh visitor accommodation register with the Welsh Revenue Authority. The scheme opened in October 2026 and existing hosts have until 31 March 2027. Registration is free; missing it is not optional.\n\nTwo more rules to check before your next booking. The 182-day rule: available to let 252 days a year and actually let 182, or the property moves from business rates to council tax, and some councils charge a premium on second homes. And planning: Wales has a short-term-let use class, C6, and a council can restrict it with an Article 4 direction [VERIFY whether any applies locally].\n\nFull SA Management with Hello New Home includes the register admin and a 182-day tracker on your monthly statement. Or start with the free appraisal and legality check for your address, which includes the registration steps: {{area_url}}",
+      "image_hint": "Calendar graphic with '31 March 2027' circled in pink and '182 days let / 252 available' beneath."
+    },
+    {
+      "id": "london-90-nights",
+      "pillar": "london",
+      "region": "england",
+      "title": "The 90-night rule, exactly",
+      "text": "If you short let a whole home in London, you have 90 nights a calendar year without planning permission. Three things people get wrong about it.\n\nEvery stay under 90 consecutive nights counts, a 30-night corporate booking as much as a weekend. The count attaches to the property across every platform combined, not to one listing. And it resets on 1 January, not on the anniversary of your first booking. Westminster opened 499 investigations in 2025, and the national short-let register expected by March 2027 [VERIFY] will make night counts visible to councils in a way they are not today.\n\nThe lawful shape of a London short let is 90 nights of short stays, then a let of 90 nights or more or a tenancy. Hello New Home runs both halves: the counter alerts at 70 nights and blocks the calendar at 90, and the free appraisal shows what the 90 nights are worth and what the rest of the year earns as a longer let or a tenancy, alongside your borough's licensing position.\n\nI'm {{partner}}, Local Partner for {{area}}. The appraisal is on the area page: {{area_url}}",
+      "image_hint": "Graphic, charcoal: a horizontal bar of 365 segments with the first 90 in pink and 'then 90-night-plus lets or a tenancy' over the rest."
+    },
+    {
+      "id": "tenant-how-we-treat-you",
+      "pillar": "tenant-help",
+      "region": "both",
+      "title": "Renting in {{area}}: what you should expect from any agent",
+      "text": "If you are looking for a home in {{area}}, this is what you should expect from any agent, including us.\n\nA holding deposit never more than one week's rent, taken only when you have been told the terms. Your deposit protected within 30 days, with the certificate sent to you. A written agreement you can read before you commit, not one handed over on moving day. Gas and electrical certificates shown to you, and alarms that work. A repairs line that answers at 2am as well as 2pm. A real person for viewings and move-in; in {{area}} that is me.\n\nIf you are being asked for more than that, ask why. If you want to register what you are looking for and where, head office will call you when something fits: {{area_url}}",
+      "image_hint": "Photo of the partner handing keys to a (consenting) person at a front door, or a plain keyring on a table; overlay 'One week's rent. 30 days. 24 hours.'"
+    },
+    {
+      "id": "tenant-homes-wanted",
+      "pillar": "tenant-help",
+      "region": "both",
+      "title": "Looking in {{place_1}}, {{place_2}} or {{place_3}}?",
+      "text": "People message me most weeks looking for a home around {{place_1}}, {{place_2}} and {{place_3}}, and the honest answer is that good ones go before they reach the portals.\n\nTwo things that help. Register your search with us (area, bedrooms, move date, pets if any) and head office will call you when something fits rather than you refreshing Rightmove. And have your references ready: ID, proof of income and your last landlord's details, so a viewing can become an application the same day.\n\nIf you are a landlord in those areas with a home coming empty, the same post applies to you in reverse: Tenant Find is £495, no let no fee, and Full Management is 12% capped at £150 a month.\n\nRegister either way on the area page: {{area_url}}",
+      "image_hint": "Street-level photo of {{place_1}} in daylight, no boards or brands visible; overlay 'Homes wanted. People waiting.'"
+    },
+    {
+      "id": "local-three-streets",
+      "pillar": "local",
+      "region": "both",
+      "title": "Three streets this week",
+      "text": "Three streets I walked this week, because that is most of the job.\n\n{{place_1}}: two boards from two different agents on the same terrace, which usually means two landlords paying two different percentages for the same service. {{place_2}}: a flat above a shop that has been to let since {{month}} began; a week's void on a {{area}} rent is worth more than most people think. {{place_3}}: a new gas engineer who has agreed to do our checks locally, which means a boiler failure here gets someone from here.\n\nIf you own a rental on any of those streets and would like an honest figure for what it should let at this month, the rent review is free and takes head office a working day: {{area_url}}",
+      "image_hint": "Three photos in a row, each a street sign or a recognisable corner of {{place_1}}, {{place_2}} and {{place_3}}, no property numbers legible."
+    },
+    {
+      "id": "local-rent-snapshot",
+      "pillar": "local",
+      "region": "both",
+      "title": "{{area}} rent, {{month}} {{year}}",
+      "text": "The ONS figure for {{area}} this month: average rent {{rent_avg}}, {{rent_change}} on a year ago.\n\nTwo things to do with it. If you are a landlord who has not reviewed the rent in a while, it is a prompt, not a target; the right figure for your property depends on the street, the condition and the season, and a rent you cannot let at is worth nothing. If you are renting, it is a check on what you are being asked for.\n\nWe give both sides the same figure. The landlord's free rent review and the figure we market at are the same number, which is why landlords sometimes hear \"lower than you hoped\" from us. Honest beats empty.\n\nRent review for your own property: {{area_url}}",
+      "image_hint": "Stat tile, cream background: '{{rent_avg}}' large, '{{area}} average rent, {{month}} {{year}}, {{rent_change}} on a year ago (ONS)' beneath."
+    },
+    {
+      "id": "review-ask",
+      "pillar": "review",
+      "region": "both",
+      "title": "If we have helped you, one line helps the next person",
+      "text": "A small ask, once. If Hello New Home has let, managed or found you a home in {{area}} and it went the way you would want, a sentence on Google about what actually happened, how fast the repairs line answered, whether the figure we gave you was the one it let at, helps the next landlord or tenant here choose.\n\nIf it did not go well, please tell me or head office first, by message or on {{phone}}, and we will put it right before you write anything. We ask everyone, we do not offer anything for a review, and we answer every one.\n\nThe review link is on the area page: {{area_url}}",
+      "image_hint": "The partner's own photo, same as the introduction post, so the ask comes from a face. No star graphics, no review counts."
+    },
+    {
+      "id": "behind-the-scenes-inspection",
+      "pillar": "behind-the-scenes",
+      "region": "both",
+      "title": "What a quarterly inspection actually involves",
+      "text": "A quarterly inspection in {{area}} takes me about 40 minutes and produces 30 to 50 photos. Here is what I am looking at.\n\nDamp and ventilation: the corners of the bathroom and the back of the wardrobes, not the hallway. Alarms: pressed, not glanced at. The boiler pressure and the date on the gas certificate. Anything the tenant mentions in passing, because a dripping tap now is a ceiling later. Then a short written report to the landlord with the photos and any work that needs booking, which head office then books.\n\nIt is not about catching anyone out. Most of what I find is a landlord's problem waiting to be small rather than large.\n\nInspections are included in Full Management, 12% capped at £150 a month. Rent review on the area page if you want to see the fee on your own property: {{area_url}}",
+      "image_hint": "Photo of the partner's hand holding a phone camera up to a bathroom ceiling corner, or a clipboard with the inspection checklist; no tenant possessions identifiable."
+    },
+    {
+      "id": "behind-the-scenes-calendar",
+      "pillar": "behind-the-scenes",
+      "region": "both",
+      "title": "The most boring spreadsheet we own",
+      "text": "Every managed property in {{area}} has a row on head office's compliance calendar: gas safety date, electrical report date, EPC expiry, alarm test, deposit protection date, licence renewal where the council runs a scheme, and the written agreement date.\n\nEach one gets booked a month before it is due. The landlord gets a message when it is done and a copy of the certificate. That is the whole system, and it is the reason the letters other landlords get about fines do not arrive.\n\nIt is also why the fee is a flat 12% capped at £150 a month with nothing added: the work is the same every month whether the rent is {{rent_avg}} or more.\n\nIf you self-manage and would like the same calendar as a one-page checklist, it is free on the area page: {{area_url}}",
+      "image_hint": "Screenshot-style graphic of a spreadsheet with seven column headers (gas, EICR, EPC, alarms, deposit, licence, agreement) and anonymised rows; charcoal background."
+    },
+    {
+      "id": "partner-recruitment",
+      "pillar": "partner",
+      "region": "both",
+      "title": "Build a property income in your own patch",
+      "text": "Hello New Home is taking on a small founding group of Local Partners in towns across England and Wales, and I'm one of them here in {{area}}, so here is what it actually is.\n\nNo buy-in. You bring the landlords and short-let owners in your patch; head office in Swansea does everything regulated: contracts, deposits, client money, compliance, rent collection, the repairs desk. Introducers earn 25% of the net management fee on every instruction they bring, for as long as it is managed, plus £100 per short-let unit live. Area Partners, once they have proven it, take a postcode territory and earn 50% on their own instructions, with a £99 a month systems fee from month four. The first three months are a proving period and either side can walk.\n\nIt is not a franchise and it is not a course. It is a brand, a back office and a territory, and the local hustle is yours. Worked examples are illustrative, never typical.\n\nIf you know your town and are already in property in some way, the programme page is here: {{area_url}}",
+      "image_hint": "Photo of the partner at a local landmark in {{place_3}} with a folder, or a plain map of the area with the partner's postcode districts shaded in pink."
+    }
+  ],
+  "graphics": [
+    {
+      "id": "sq-capped-fee",
+      "format": "square",
+      "headline": "Fee capped at £150 a month",
+      "sub": "12% of rent up to the cap. No VAT. No renewal or inspection fees.",
+      "cta": "Free Rent Review",
+      "style": "dark"
+    },
+    {
+      "id": "sq-no-lock-in",
+      "format": "square",
+      "headline": "30 days' notice. No exit fee.",
+      "sub": "Most agents tie you in for 12 months. We don't.",
+      "cta": "See the fee sheet",
+      "style": "pink"
+    },
+    {
+      "id": "sq-now-covering",
+      "format": "square",
+      "headline": "Now covering {{area}}",
+      "sub": "{{partner_first}} on the ground. Head office does the contracts and the money.",
+      "cta": "Meet {{partner_first}}",
+      "style": "light"
+    },
+    {
+      "id": "sq-switch",
+      "format": "square",
+      "headline": "Switch agent. First 3 months free.",
+      "sub": "Setup waived, handover done for you. 25 places a quarter.",
+      "cta": "Check my exit date",
+      "style": "dark"
+    },
+    {
+      "id": "sq-long-or-short",
+      "format": "square",
+      "headline": "Long let or short let?",
+      "sub": "Both numbers for your {{area}} address, net of every cost. Free.",
+      "cta": "Get the appraisal",
+      "style": "pink"
+    },
+    {
+      "id": "sq-proof-line",
+      "format": "square",
+      "headline": "The agreement is with Hello New Home",
+      "sub": "{{region_law}}. PolicyBee insured.",
+      "cta": "See the fee sheet",
+      "style": "light"
+    },
+    {
+      "id": "sq-rent-snapshot",
+      "format": "square",
+      "headline": "{{area}} rent: {{rent_avg}}",
+      "sub": "{{rent_change}} on a year ago (ONS, {{month}} {{year}}). Your figure may differ.",
+      "cta": "Rent review in 1 day",
+      "style": "dark"
+    },
+    {
+      "id": "st-tenant-find",
+      "format": "story",
+      "headline": "Tenant Find £495",
+      "sub": "No let, no fee. Photos, portals, viewings, referencing, agreement, inventory.",
+      "cta": "WhatsApp {{whatsapp_display}}",
+      "style": "pink"
+    },
+    {
+      "id": "st-eleven-forty",
+      "format": "story",
+      "headline": "11.40pm. Key safe not working.",
+      "sub": "Self-hosting is a second job. Full SA Management: 18% of net, cleaning at cost.",
+      "cta": "Free SA appraisal",
+      "style": "dark"
+    },
+    {
+      "id": "st-five-dates",
+      "format": "story",
+      "headline": "Five dates every landlord keeps",
+      "sub": "Gas. Electrical. EPC. Alarms. Licence. We book them before they're due.",
+      "cta": "Free checklist",
+      "style": "light"
+    },
+    {
+      "id": "cv-fb-area-page",
+      "format": "cover",
+      "headline": "Hello New Home {{area}}",
+      "sub": "Capped-fee lettings and short-let management. No lock-in.",
+      "cta": "Free Rent Review",
+      "style": "dark",
+      "note": "Facebook page cover for the area page; keep text in the safe zone."
+    },
+    {
+      "id": "cv-fb-partner",
+      "format": "cover",
+      "headline": "Local Partner for {{area}}",
+      "sub": "{{partner_first}}, on the ground for viewings, inspections and check-ins.",
+      "cta": "WhatsApp {{whatsapp_display}}",
+      "style": "light",
+      "note": "Cover for the partner's personal profile or LinkedIn banner."
+    },
+    {
+      "id": "ab-fee",
+      "format": "a-board",
+      "headline": "Your property, managed.",
+      "sub": "{{area}}. Fee capped at £150 a month. No lock-in. No VAT.",
+      "cta": "Scan for a free rent review",
+      "style": "pink",
+      "note": "A-board for markets, fairs and the partner's drive. QR to {{area_url}}."
+    },
+    {
+      "id": "ab-homes-wanted",
+      "format": "a-board",
+      "headline": "Homes wanted in {{area}}",
+      "sub": "Tenant Find £495, no let no fee. Full Management capped at £150.",
+      "cta": "Call {{phone}}",
+      "style": "dark",
+      "note": "A-board for shop fronts with permission; swap the three places monthly."
+    }
+  ],
+  "gbp": {
+    "name_pattern": "Hello New Home {{area}}",
+    "name_rule": "Google's guidelines allow location words in a profile name only when they are part of the location's real-world name. The area name is permitted only if 'Hello New Home {{area}}' is used consistently on the area page title, the partner's cards, the ID letter and email signature; otherwise the profile is named 'Hello New Home' and the area goes in the service area. [VERIFY the name is accepted at verification; see national/MAPS-PACK-PLAYBOOK.md section 2]",
+    "profile_type": "Service-area business, address hidden. One profile per area because each area has its own staff ({{partner_first}}) and its own service area. Never add a partner's home as a storefront; never list a virtual office or mailbox.",
+    "categories": [
+      "Property management company",
+      "Letting agent",
+      "Real estate rental agency",
+      "Vacation home rental agency"
+    ],
+    "categories_note": "Primary first. Check each secondary category is offered in the UK picker at setup [VERIFY]. Do not add categories as keywords.",
+    "phone": "{{phone}}",
+    "website": "{{area_url}}",
+    "service_area": "The towns and districts in {{covers}}, entered as towns or postcode districts, up to Google's limit of 20, all within about two hours' driving of {{partner_first}}'s base.",
+    "hours": "Mon to Fri 9.00 to 17.30; Sat 9.00 to 13.00 [CONFIRM]",
+    "description": "Hello New Home is a letting agent with a capped management fee, no lock-in, and {{partner_first}} on the ground in {{area}} for viewings, inspections and check-ins. Contracts, deposits, rent collection, the legal paperwork and the compliance calendar are run from our head office in Swansea. Full Management is a percentage of rent with a fixed monthly ceiling and no VAT added, and you can leave with 30 days' notice. Tenant Find is no let, no fee. We also run short lets and can switch a property to a long let when the numbers say so. {{region_law}}, PolicyBee insured. Covering {{covers}}. Consider yourself moved.",
+    "description_note": "No URLs, phone numbers or prices, per Google's description policy. Where {{covers}} is longer than 60 characters the portal renders the first four places only, so the rendered description stays under 750. If Google flags 'no let, no fee' as promotional, cut that sentence; the description still stands. Re-measure after rendering: {{covers}} can be long.",
+    "services": [
+      {
+        "name": "Free Rent Review",
+        "description": "An honest rent figure for your {{area}} property within one working day, with a written fee comparison if you want one. No obligation. Free."
+      },
+      {
+        "name": "Tenant Find",
+        "description": "Photos, Rightmove, Zoopla and OnTheMarket, viewings by {{partner_first}}, Vouch and Goodlord referencing, the written agreement the law requires, deposit registration, move-in inventory. £495, no let no fee."
+      },
+      {
+        "name": "Full Management (capped fee)",
+        "description": "Everything in Tenant Find plus rent collection, arrears chasing, 24/7 repairs line, quarterly inspections, compliance calendar, annual rent review, year-end statement. 12% of rent, capped at £150 a month. Setup £295, waived when switching a tenanted property. 30 days' notice."
+      },
+      {
+        "name": "Managed+ Rent Guarantee",
+        "description": "Full Management plus rent guarantee and legal expenses cover (Goodlord or Vouch) and possession handling. Full Management fee plus £25 a month."
+      },
+      {
+        "name": "Agent Switch",
+        "description": "Move a tenanted property from another agent: notice drafted, deposit transferred, paperwork checked, tenant introduced, handover visit by {{partner_first}}. First three months of Full Management fee-free, setup waived. 25 places a quarter."
+      },
+      {
+        "name": "{{area}} Landlord Compliance Checklist",
+        "description": "One page: the certificates, deadlines and licence rules for a let home in {{area}}, dated and sourced. The list we run as a calendar for every property we manage. Free."
+      },
+      {
+        "name": "HMO Management (via hellomyroom)",
+        "description": "Room-by-room lets, licensing and fire safety management, bills management, shared-house issues, void rooms remarketed within 48 hours. 15% of gross room rent."
+      },
+      {
+        "name": "HMO Room Let-Only",
+        "description": "Find and reference one tenant for one room, agreement and deposit done. £249 per room."
+      },
+      {
+        "name": "Free SA Income Appraisal",
+        "description": "Your property as a long let and as a short let, side by side, net of every cost, using {{area}} rates, plus a legality check for the address: the business-rates night test, council tax, planning and the short-let register. Free."
+      },
+      {
+        "name": "SA Launch",
+        "description": "Photography, Airbnb and Booking.com listings plus a direct-booking page, pricing rules, house manual, smart-lock and noise-monitor advice, compliance pack. £495, waived with 12 months of Full SA Management."
+      },
+      {
+        "name": "Full SA Management",
+        "description": "Dynamic pricing, guest vetting, 24/7 guest messaging, cleaning and linen coordination, restock, maintenance, reviews, monthly owner statement with night-count tracker, register admin when it opens. 18% of net booking revenue, cleaning at cost. 30-day exit."
+      },
+      {
+        "name": "SA Co-Host (Light)",
+        "description": "Pricing, guest communication and listing management only; you run cleaning. 12% of net booking revenue."
+      },
+      {
+        "name": "Flex Switch",
+        "description": "Move any managed property between long let, shared house and short let with the same agent, no re-onboarding. Included."
+      },
+      {
+        "name": "Renting with Hello New Home",
+        "description": "Fair, fast, legal: holding deposit never more than one week's rent, deposit protected within 30 days, a written agreement before you commit, 24/7 repairs line, viewings with {{partner_first}} in {{area}}. Free to apply."
+      }
+    ],
+    "posts": [
+      {
+        "id": "gbp-rent-review",
+        "type": "Offer",
+        "region": "both",
+        "title": "Free Rent Review in {{area}}",
+        "text": "If your rent has gone up, your agent's percentage went up with it. Ours stops at £150 a month.\n\nHello New Home manages {{area}} properties for 12% of rent, capped at £150 a month, no VAT. Average rent here is {{rent_avg}}, {{rent_change}} on a year ago; whatever yours lets for, the fee stops at the cap. Rent collection, arrears chasing, a 24/7 repairs line, quarterly inspections by {{partner_first}}, and a compliance calendar for gas, electrical, EPC, alarms and any council licence. No 12-month tie-in: 30 days' notice, no exit fee.\n\nStart with a Free Rent Review. Tell us the address and we'll call within one working day with an honest figure and a written fee comparison. No obligation.\n\n{{region_law}}. PolicyBee insured. Head office in Swansea; {{partner_first}} on the ground in {{area}}.",
+        "cta_button": "Get offer → {{area_url}}"
+      },
+      {
+        "id": "gbp-switch",
+        "type": "Offer",
+        "region": "both",
+        "title": "Switching agent? First three months free",
+        "text": "Moving a tenanted {{area}} property to Hello New Home: your first three months of Full Management are fee-free and the £295 setup fee is waived. Head office drafts the notice to your current agent, transfers the deposit and checks the paperwork against the current rules; {{partner_first}} does the handover visit and introduces us to your tenant, whose only change is the repairs number.\n\nAfter that: 12%, capped at £150 a month, no VAT, 30 days' notice to leave.\n\nLimited to 25 landlords a quarter so each handover is done properly. Send a photo of your current agreement and we'll tell you your earliest exit date within one working day.",
+        "cta_button": "Learn more → {{area_url}}"
+      },
+      {
+        "id": "gbp-england-1-may",
+        "type": "Update",
+        "region": "england",
+        "title": "What changed on 1 May 2026",
+        "text": "Since 1 May 2026 every new tenancy in England needs a written statement of terms before it starts, rent can rise once a year by notice, no-fault notices have gone, and the landlord database opens on 15 December 2026 [VERIFY]. None of it is hard. It is dates and forms, and dates get missed around a day job.\n\nFull Management includes all of it, 12% capped at £150 a month, with {{partner_first}} doing the inspections in {{area}}. A council licence may also apply to your street or property type; we check before we market.\n\nSelf-managing? The free {{area}} Landlord Compliance Checklist is the list we use.",
+        "cta_button": "Learn more → {{area_url}}"
+      },
+      {
+        "id": "gbp-wales-five-dates",
+        "type": "Update",
+        "region": "wales",
+        "title": "The five dates every Welsh landlord has to keep",
+        "text": "Rent Smart Wales registration and licence. The written statement within 14 days of the occupation date. Mains-powered, linked smoke alarms on every floor and a carbon monoxide alarm in any room with a gas, oil or solid-fuel appliance. An electrical inspection at least every five years. The deposit protected within 30 days.\n\nMiss the written statement and you can't serve a landlord's notice until six months after you finally hand it over. Miss Rent Smart Wales and a tribunal can order rent to be repaid.\n\nWe've put the full list on one page, free. It's the same list we run as a calendar for every property we manage in {{area}}; {{partner_first}} checks the alarms on every inspection.",
+        "cta_button": "Learn more → {{area_url}}"
+      },
+      {
+        "id": "gbp-long-or-short",
+        "type": "Update",
+        "region": "both",
+        "title": "Long let or short let in {{area}}?",
+        "text": "We run both, so the Free SA Income Appraisal puts your property side by side: what it nets as a long let and as a short let, after platform fees, cleaning, utilities, voids and management, using {{area}} rates rather than a national average.\n\nIt also checks the rules for your address: the business-rates night test, the council tax position, planning and the short-let register, and in London the 90-night rule.\n\nIf the long let wins, we'll say so and manage that instead. If the short let wins, Full SA Management is 18% of net booking revenue, cleaning at cost, 30-day exit, and you can switch back to a tenancy without re-onboarding. {{partner_first}} handles changeovers and the things that need a person in {{area}}.",
+        "cta_button": "Get offer → {{area_url}}"
+      },
+      {
+        "id": "gbp-hmo",
+        "type": "Update",
+        "region": "both",
+        "title": "Shared houses in {{area}}, room by room",
+        "text": "A four-bed let by the room is a different job from a family let: four agreements, four deposits, four sets of references, bills to split, a licence to hold and fire safety to keep. Our HMO arm, hellomyroom, manages shared houses in {{area}} room by room: licensing and fire safety management, bills management, shared-house issues, and void rooms remarketed within 48 hours. {{partner_first}} does the viewings and room check-ins here.\n\n15% of gross room rent. Room let-only, if you just need one tenant found and referenced, is £249 per room. 30 days' notice, as with everything we do.\n\nStart with a free HMO rent review for the house.",
+        "cta_button": "Get offer → {{area_url}}"
+      },
+      {
+        "id": "gbp-tenants",
+        "type": "Update",
+        "region": "both",
+        "title": "Looking for a home in {{area}}? Here's how we treat you",
+        "text": "A holding deposit never more than one week's rent. Your deposit protected within 30 days, with the certificate sent to you. A written agreement you can read before you commit. A 24/7 repairs line that answers. And {{partner_first}}, a real person in {{area}}, for viewings and move-in.\n\n{{region_law}}, Vouch and Goodlord referencing, and a strap we mean: consider yourself moved.\n\nRegister your search with the area, bedrooms and move date, and we'll call you when something fits across {{covers}}.",
+        "cta_button": "Learn more → {{area_url}}"
+      },
+      {
+        "id": "gbp-month-one",
+        "type": "Update",
+        "region": "both",
+        "title": "{{month}} in {{area}}: thank you, and the free rent review",
+        "text": "A month of {{partner_first}} walking {{place_1}}, {{place_2}} and {{place_3}}, meeting landlords, tenants and the trades who'll do our gas and electrical checks here. Thank you to everyone who asked a question, passed on a card or sent us an address.\n\nThe offer hasn't changed and won't: Full Management 12% of rent, capped at £150 a month, no VAT, 30 days' notice; Tenant Find £495, no let no fee. Every fee published in full.\n\nIf you own a rental in {{area}} and haven't had an honest figure for it this year, the Free Rent Review takes head office one working day.",
+        "cta_button": "Get offer → {{area_url}}"
+      }
+    ],
+    "qna": [
+      {
+        "q": "What are your management fees?",
+        "a": "Full Management is 12% of rent, capped at £150 a month, no VAT. Tenant Find is £495, no let no fee. Managed+ with rent guarantee is the Full Management fee plus £25 a month. The full fee list is on our {{area}} page."
+      },
+      {
+        "q": "Do I have to sign up for 12 months?",
+        "a": "No. Full Management is 30 days' notice, no exit fee, from day one. If we're not doing the job, you leave."
+      },
+      {
+        "q": "Are you regulated?",
+        "a": "{{region_law}}. Both scheme names are published on the fee sheet. {{partner_first}} is our Local Partner in {{area}} and does the local work; the agreement and your money are with Hello New Home."
+      },
+      {
+        "q": "Who will actually turn up at my property?",
+        "a": "{{partner_first}}, who lives and works in {{area}}, does the viewings, quarterly inspections, check-ins and check-outs across {{covers}}. Contracts, rent and compliance are handled by head office in Swansea."
+      },
+      {
+        "q": "Do you manage HMOs?",
+        "a": "Yes, through our HMO arm, hellomyroom. Room-by-room lets, licensing and fire safety management, bills, and void rooms remarketed within 48 hours. 15% of gross room rent."
+      },
+      {
+        "q": "Do you manage Airbnb or holiday lets?",
+        "a": "Yes. Full SA Management covers pricing, guest messaging, cleaning and linen coordination, maintenance, monthly statements and the night-count and register admin. 18% of net booking revenue, cleaning at cost. We cover {{covers}}."
+      },
+      {
+        "q": "Can I switch a property from a long let to a short let, or back?",
+        "a": "Yes. Because we run both, a managed property can move between long let and short let with us without re-onboarding. The free SA Income Appraisal shows which nets more for your address."
+      },
+      {
+        "q": "I'm with another agent. Can I move to you mid-agreement?",
+        "a": "Often, yes. Send us a photo of your agreement and we'll tell you your earliest exit date and any exit fee within one working day. Moving a tenanted property gets the first three months of Full Management free and setup waived."
+      },
+      {
+        "q": "I'm a tenant. How much is the holding deposit and when do I get my agreement?",
+        "a": "A holding deposit is never more than one week's rent. You get the written agreement before you commit, and your deposit is protected within 30 days with the certificate sent to you."
+      },
+      {
+        "q": "How do I report a repair?",
+        "a": "Tenants have a 24/7 repairs line (in your welcome pack) and an online portal. Two photos and a sentence usually gets it fixed first time. For emergencies, use the repairs line at any hour; {{partner_first}} attends in {{area}} when a visit is needed."
+      }
+    ],
+    "qna_note": "Google retired the Q&A API in November 2025 and a revamped owner Q&A flow was in testing in August 2026 [VERIFY whether Q&A is available in the dashboard for this profile]. If it is not, publish these ten pairs as an FAQ block on {{area_url}} instead.",
+    "attributes": [
+      "Identifies as locally owned",
+      "Online appointments",
+      "Onsite services",
+      "Online estimates (Free Rent Review)"
+    ],
+    "attributes_note": "Set only attributes that are true for the area; never 'wheelchair accessible' or similar about a hidden address.",
+    "photo_plan": [
+      "Logo: the Hello New Home mark on white, square, uploaded once by head office.",
+      "Cover: {{partner_first}} on a named street in {{place_1}}, landscape, daylight, no stock imagery.",
+      "{{partner_first}} at a front door with keys (consenting tenant or an empty managed property).",
+      "A quarterly inspection in progress: phone camera to a ceiling corner, no tenant possessions identifiable.",
+      "A managed property exterior per month, with the landlord's permission and no house number legible.",
+      "The local gas engineer or electrician at work, with their permission, named in the caption.",
+      "A short-let changeover: made bed, folded towels, welcome note (unit anonymised).",
+      "The head office door at Central Business Park, Swansea, so the two-part structure is visible.",
+      "A street sign for each of {{place_1}}, {{place_2}} and {{place_3}}.",
+      "The fee-sheet graphic (sq-capped-fee) as an image post, refreshed quarterly.",
+      "Cadence: two new photos a week for the first 90 days, then one a week; captions name the place, never the property address."
+    ]
+  },
+  "letters": [
+    {
+      "id": "board-canvass-letter",
+      "title": "Board-canvass letter (owner of a property with a To Let or Let By board)",
+      "region": "both",
+      "notes": "Posted through the door of the board property (the occupier passes it on) or sent to the owner's address from the register. The print step adds the date and, where held, the owner's name and address above the greeting. Never reference how the owner was found beyond 'the register'.",
+      "html": "<h2 class=\"flyer-head\">Hello New Home Letting Agents</h2><p class=\"flyer-body\">Head office: Unit 54, First Floor, Menzies Distribution, Mill Stream Way, Central Business Park, Swansea SA7 0AG · {{phone}} · lettings@hellonewhome.co.uk</p><p class=\"flyer-body\">Local Partner, {{area}}: {{partner}} · WhatsApp {{whatsapp_display}}</p><p class=\"flyer-body\"><strong>Re: your rental property in {{area}}</strong></p><p class=\"flyer-body\">Dear owner,</p><p class=\"flyer-body\">I walked past your property this week and saw the board. I'm {{partner}}, the Local Partner for Hello New Home in {{area}}, and I'm writing to the owners of every board I log, so this is not a letter about anything your agent has or hasn't done. It is about one number.</p><p class=\"flyer-body\">Hello New Home manages properties across {{covers}} for 12% of rent, capped at <strong>£150 a month</strong>, with no VAT added. Average rent in {{area}} is {{rent_avg}}, {{rent_change}} on a year ago; whatever yours lets for, the fee stops at the cap. Inside it: tenant find and referencing through Vouch and Goodlord, the written agreement the law requires, deposit registration, rent collection and arrears chasing, a 24/7 repairs line, quarterly inspections by me, an annual rent review, a year-end statement, and a compliance calendar for the gas, electrical, EPC, alarm and licence dates.</p><p class=\"flyer-body\">If the board is a \"To Let\" board and the property has been empty a while, the quickest thing I can do is get you an honest figure for what it should let at this month, which is sometimes lower than the one on the board and lets faster. If it is a \"Let By\" board, nothing needs to change today; when your current agreement comes up for renewal, moving a tenanted property to us gets the first three months of Full Management fee-free and the £295 setup waived, 25 landlords a quarter.</p><p class=\"flyer-body\">Hello New Home: {{region_law}}, PolicyBee insured. The agreement and your money are with Hello New Home; I am the person who turns up. Leave with 30 days' notice, no exit fee.</p><h3 class=\"flyer-head\">What to do next</h3><p class=\"flyer-body\">Ask for a Free Rent Review at {{area_url}}, or WhatsApp {{whatsapp_display}} with \"rent review\" and the address. Within one working day you will have the figure and, if you want it, a written fee comparison against what you pay now. No obligation.</p><p class=\"flyer-body\">Yours sincerely,</p><p class=\"flyer-body\"><strong>{{partner}}</strong>, Local Partner for {{area}}, Hello New Home</p><p class=\"flyer-body\">PS. If the board belongs to an agent and your agreement still has months to run, send a photo of it and head office will tell you your earliest clean exit date, free. We don't ask anyone to break an agreement.</p><p class=\"flyer-foot\">If you would rather not hear from us about this property again, reply \"no thanks\" to the WhatsApp number or email lettings@hellonewhome.co.uk and we will remove the address from our list.</p>"
+    },
+    {
+      "id": "airbnb-host-letter",
+      "title": "Short-let host letter (owner of a property listed on a short-let platform or on the self-catering rating list)",
+      "region": "both",
+      "notes": "Address to 'The Owner' where no name is held. Never quote the listing, the nightly rate or the review score. The region-specific rule block is rendered by the portal from the area's region: Wales (visitor register by 31 March 2027; 182 of 252 days; C6 and Article 4) or England (70 of 140 nights; council tax premium; the national register expected March 2027 [VERIFY]; the 90-night rule in London).",
+      "html": "<h2 class=\"flyer-head\">Hello New Home Letting Agents</h2><p class=\"flyer-body\">Head office: Central Business Park, Swansea SA7 0AG · {{phone}} · lettings@hellonewhome.co.uk · Local Partner, {{area}}: {{partner}} · WhatsApp {{whatsapp_display}}</p><p class=\"flyer-body\"><strong>Re: short lets in {{area}} and the rules that now apply to them</strong></p><p class=\"flyer-body\">Dear owner,</p><p class=\"flyer-body\">If your property takes paying guests, three rules now apply to it, and at least one has a date. The short-let register: free to join, not optional, with a deadline that depends on which nation you are in. The business-rates night test: fall short of the nights your nation requires and the property moves to council tax, and several councils charge a premium on second homes. And planning: in some places a short let needs permission, and in London a whole home is limited to 90 nights a year of stays shorter than 90 consecutive nights.</p><p class=\"flyer-body\">None of that is a reason to stop hosting. It is a reason to have someone local keeping the dates.</p><p class=\"flyer-body\">Hello New Home is a letting agent that also runs serviced accommodation, with {{partner_first}} on the ground in {{area}}. Full SA Management covers dynamic pricing, guest vetting, 24/7 guest messaging, cleaning and linen coordination, restocking, maintenance, reviews, a monthly owner statement with the night count built in, and the register admin. The fee is 18% of net booking revenue, cleaning passed through at cost, no VAT. If you would rather keep your own cleaner, SA Co-Host handles pricing, guest messages and the listing for 12%. Leave with 30 days' notice, no exit fee.</p><p class=\"flyer-body\">Because we manage long lets too, we can also tell you honestly whether your property would net more as a tenancy, and move it there and back without re-onboarding. No national co-host and no high-street agent can offer that, because they only run one model.</p><p class=\"flyer-body\">If you have hosted for six months or more, there is a backstop: if your net income in the first 90 days of Full SA Management is below your documented previous 90 days for the same season, that quarter's management fee is refunded.</p><h3 class=\"flyer-head\">What to do next</h3><p class=\"flyer-body\">Ask for a Free SA Income Appraisal at {{area_url}}, or WhatsApp {{whatsapp_display}} with \"appraisal\" and the address. Within three working days you will have your property as a long let and as a short let, side by side, net of every cost, plus a legality check for the address covering the register, the night test and planning. If the long let wins, we will say so.</p><p class=\"flyer-body\">Yours sincerely,</p><p class=\"flyer-body\"><strong>{{partner}}</strong>, Local Partner for {{area}}, Hello New Home · {{region_law}}</p><p class=\"flyer-body\">PS. If you had not heard of the register until this letter, you are not behind yet. The appraisal includes the registration steps for your address.</p><p class=\"flyer-foot\">If you would rather not hear from us about this property again, WhatsApp \"no thanks\" or email lettings@hellonewhome.co.uk and we will remove the address.</p>"
+    },
+    {
+      "id": "expired-listing-letter",
+      "title": "Expired or withdrawn listing letter (property that was advertised to let and has come off the portals without a let)",
+      "region": "both",
+      "notes": "Sent to the owner's address from the register, or through the door if the property is empty. Lead angle: the void, not the agent. Never name the agent who had the listing or quote the asking rent.",
+      "html": "<h2 class=\"flyer-head\">Hello New Home Letting Agents</h2><p class=\"flyer-body\">Head office: Central Business Park, Swansea SA7 0AG · {{phone}} · lettings@hellonewhome.co.uk · Local Partner, {{area}}: {{partner}} · WhatsApp {{whatsapp_display}}</p><p class=\"flyer-body\"><strong>Re: your property in {{area}}, advertised to let</strong></p><p class=\"flyer-body\">Dear owner,</p><p class=\"flyer-body\">Your property was advertised to let recently and has now come off the portals. If it let, congratulations and please ignore the rest of this letter. If it didn't, this is about the two things that usually cause that, and what they cost.</p><p class=\"flyer-body\">The first is the figure. An asking rent set to win the instruction rather than to let the property sits for weeks, and every empty week on a {{area}} rent is money gone for good; average rent here is {{rent_avg}}, so a month's void is a month of that. The second is the presentation: photos taken on a grey afternoon, a listing with no floor plan, viewings that need three days' notice because nobody local can do them.</p><p class=\"flyer-body\">What we do differently. We give you the figure we would market at, not the one we think you want to hear. {{partner_first}} does viewings in {{area}} within a day of a request, evenings and Saturdays included. Tenant Find is <strong>£495, no let no fee</strong>: photos, Rightmove, Zoopla and OnTheMarket, viewings, Vouch and Goodlord referencing, the written agreement, deposit registration and a move-in inventory. If you would rather hand the whole thing over, Full Management is 12% of rent, capped at £150 a month, no VAT, 30 days' notice to leave.</p><p class=\"flyer-body\">Hello New Home: {{region_law}}, PolicyBee insured. Head office in Swansea does the contracts, the money and the compliance calendar; I do the local work.</p><h3 class=\"flyer-head\">What to do next</h3><p class=\"flyer-body\">Ask for a Free Rent Review at {{area_url}}, or WhatsApp {{whatsapp_display}} with \"rent review\" and the address. Within one working day you will have an honest figure for this month, and if you want us to market it, we can have it live within the week.</p><p class=\"flyer-body\">Yours sincerely,</p><p class=\"flyer-body\"><strong>{{partner}}</strong>, Local Partner for {{area}}, Hello New Home</p><p class=\"flyer-body\">PS. If the property let privately and you are now managing it yourself, the free {{area}} Landlord Compliance Checklist on the area page has the dates you now have to keep. No strings.</p><p class=\"flyer-foot\">If you would rather not hear from us about this property again, reply \"no thanks\" to the WhatsApp number or email lettings@hellonewhome.co.uk and we will remove the address from our list.</p>"
+    }
+  ],
+  "scripts": [
+    {
+      "id": "cold-call",
+      "title": "Cold call to a landlord (TPS-screened list only)",
+      "text": "Open: \"Hi, is that [name]? It's {{partner_first}} from Hello New Home, the letting agents. I'm the Local Partner for {{area}}. Have I caught you at a bad time, or have you got two minutes?\"\n\nIf bad time: \"No problem. When's better, this evening or tomorrow lunchtime?\" Book it. Hang up.\n\nIf \"what's it about?\": \"Two things, quickly. We're the agent with the capped management fee: 12%, but never more than £150 a month, no VAT, and no 12-month lock-in. And I'm calling landlords in {{area}} to offer a free rent review: an honest figure for what your place should be letting at this month, no obligation. Is your property on [street] still let out?\"\n\nDiscover, then be quiet: \"How are you managing it at the moment, yourself or through an agent?\" If self-managing: \"What's the bit you'd most like off your plate?\" If with an agent: \"What are they charging you all-in, if you don't mind me asking, and when does the agreement run to?\" \"Is it just the one, or do you have others?\"\n\nPosition, matching what they said, not everything: arrears, \"rent collection and arrears chasing sit with head office, and there's a rent guarantee option for £25 a month on top if you want the worry gone\"; fee creep, \"the cap is the point: on the {{area}} average of {{rent_avg}} you'd pay 12% of that and never more than £150, with no renewal or inspection fees\"; lock-in, \"30 days' notice, any time, no exit fee\"; compliance, \"gas, electrics, EPC, alarms, licence renewals, the agreement paperwork, all on a calendar head office runs, and I do the inspections here.\"\n\nAsk: \"Shall I book you in for the free rent review? Head office will call within one working day, it takes about ten minutes, and you'll have a written figure by email. If the numbers don't stack up, you've lost ten minutes.\"\n\nClose: \"Best number and email? And the address? Any time you'd rather not be called? Thanks [name], you'll hear from head office by [day]. This is my direct number, {{whatsapp_display}}, if anything comes up.\"\n\nIf no: \"Understood. Can I pop a one-page fee sheet in the post for when the renewal comes round?\" Log the outcome and the renewal date. If \"take me off your list\": \"Of course, I'll do that now. Sorry to have bothered you.\" Log the opt-out the same hour.",
+      "notes": "Never name another agent, never guess their fees, never say guaranteed. {{region_law}} is the proof line if asked who regulates us."
+    },
+    {
+      "id": "doorstep",
+      "title": "Doorstep, board-canvass streets",
+      "text": "Use on streets where you have logged boards. Never after 7pm, never where a \"no cold callers\" sticker is displayed.\n\nHomeowner answers: \"Hi, sorry to knock. I'm {{partner_first}}, the Local Partner for Hello New Home, the letting agents, and I'm working this street this month. You'll have seen the boards at number [x] and number [y]. Two quick questions and then I'll leave you alone: do you own any rental property yourself, and do you know who owns number [x]?\"\n\nIf they own a rental: \"Rather than keep you on the doorstep, can I get head office to call you for a free rent review? Ten minutes, written figure, no obligation. The fee's 12% capped at £150 a month and there's no lock-in, so there's nothing to sign today.\"\n\nIf they know the owner: \"Would you mind passing on my card? I won't ask you for their number. If they'd like a free rent review the details are on there.\" Hand over a card. Thank them. Leave.\n\nIf neither: \"Thanks very much, that's all I needed. Have a good day.\"\n\nTenant answers at a board property: \"Hi, sorry to disturb you. I'm {{partner_first}} from Hello New Home, the letting agents. I'm not here about your tenancy and I'm not going to ask you anything about your landlord. Could I leave a card for the owner in case they're ever reviewing who manages the place? Thanks, that's all.\" Do not ask the tenant about the rent, the landlord or whether they are happy.\n\nNo answer: the \"sorry we missed you\" card through the door, dated and initialled.",
+      "notes": "Cards carry {{area_url}}, {{whatsapp_display}} and {{phone}}. Log every board, every card and every opt-out the same day."
+    },
+    {
+      "id": "networking-intro",
+      "title": "Networking intro, 20 seconds and the round-the-room version",
+      "text": "Twenty seconds: \"I'm {{partner_first}}, Local Partner for Hello New Home, the letting agents with the capped management fee: 12%, never more than £150 a month, no VAT, and no lock-in. We do long lets, shared houses and short lets, so a landlord can switch between them without changing agent. I cover {{covers}}. If you know anyone round here who's fed up with their agent, or running an Airbnb and wondering if it's worth it, I'll get them a free rent review or a free short-let appraisal from head office. Who do you know?\"\n\nRound-the-room: \"{{partner_first}}, Hello New Home, capped-fee lettings and short-let management for {{area}}. I'm looking for landlords who are fed up with fees and short-let owners who are fed up full stop.\"\n\nIf asked \"so you're the agent?\": \"No. Hello New Home is: {{region_law}}, insured, and that's who the agreement and the money sit with. I'm the person who turns up in {{area}}.\"",
+      "notes": "One ask per conversation. Take a card, don't just give one, and send the WhatsApp first message within 24 hours."
+    },
+    {
+      "id": "whatsapp-first-message",
+      "title": "WhatsApp first message (replies and follow-ups only, never cold)",
+      "text": "After a networking meeting or a card: \"Hi [name], it's {{partner_first}} from Hello New Home, we met at [event] on [day]. As promised, the short version: Full Management is 12% of rent, capped at £150 a month, no VAT, 30 days' notice to leave. Tenant Find is £495, no let no fee. The full fee sheet is here: {{area_url}}. If you'd like the free rent review, send me the address and head office will call within one working day. No pressure either way, and good to meet you.\"\n\nReply to someone who posted \"can anyone recommend a letting agent?\": \"Hi [name], saw your post in [group]. I'm the Local Partner for Hello New Home in {{area}}, so I'm biased, but here's the straight version: 12% capped at £150 a month, no lock-in, {{region_law}}, head office in Swansea, me on the ground here. If it's useful, head office will do a free written rent review so you've got a number to compare any agent against. Want me to set that up? If not, no problem, and good luck with the let.\"\n\nReply to someone who posted about a problem (arrears, a bad agent, a council letter): \"Hi [name], sorry you're dealing with that. I'm with Hello New Home (Local Partner for {{area}}). I can't advise on your specific situation, but I can get someone at head office who deals with [arrears / licensing / notices] every day to give you a ten-minute call, no charge and no pressure to move to us. Would that help? If you'd rather just have the number for the council's housing team or Shelter, say so and I'll send it.\"\n\nReply to someone who messaged first about fees: \"Thanks for getting in touch, [name]. Everything's on the fee sheet so there are no surprises: Full Management 12% of rent, capped at £150 a month; setup £295, waived if you're moving an existing tenancy over; Tenant Find £495, no let no fee; rent guarantee is Full Management plus £25 a month. 30 days' notice to leave, any time. Full list: {{area_url}}. The quickest next step is the free rent review; head office calls within a working day. Shall I book it, and what's the address?\"",
+      "notes": "Send the link as a second message so it previews. Never message an individual who hasn't posted, messaged or met you first."
+    },
+    {
+      "id": "review-ask",
+      "title": "Review ask (after a win, once, everyone)",
+      "text": "When: the day a tenant moves in and the first rent clears; the day a repair is closed; the first monthly statement after a switch; the first owner statement on a short let. Ask once; one reminder after seven days; then stop.\n\nLandlord, by WhatsApp or text: \"Hi [name], it's {{partner_first}} at Hello New Home. First rent on [street] has cleared and [tenant first name] is in. If the last few weeks went the way you'd want, would you leave us a line on Google? [link]. If anything didn't, reply here and I'll sort it first.\"\n\nTenant, seven days in: \"Hi [name], it's {{partner_first}} at Hello New Home. A week in at [street]. Agreement, deposit certificate and alarms all as they should be? If yes, we'd be grateful for a Google review: [link]. If anything's not right, reply here and we'll fix it.\"\n\nIn person, at the end of a check-in or a closed repair: \"One small ask. If this went well, a sentence on Google helps the next landlord or tenant in {{area}} choose. I'll text you the link. If it didn't go well, tell me now and I'd rather fix it than read about it.\"\n\nRules: ask everyone who reaches the trigger, not just the happy ones; never offer money, discounts or fee waivers; never ask for a star rating or particular words; never ask while standing over them; head office replies to every review within two working days.",
+      "notes": "The review link is the area profile's Google review short link; HQ sends it to the partner on day one."
+    },
+    {
+      "id": "referral-ask",
+      "title": "Referral ask (landlords and short-let owners, after the first good month)",
+      "text": "When: after the first statement that lands the way you said it would, or a repair handled well. Not at signing.\n\nBy WhatsApp or in person: \"Glad the first month went the way we said. Can I ask one thing? Most of our landlords in {{area}} come from other landlords. If you know anyone round {{place_1}}, {{place_2}} or {{place_3}} who's paying a percentage plus extras, or self-managing and getting the letters, would you pass my number on, {{whatsapp_display}}? I won't contact them unless they contact me. The fee sheet is the same for them as it was for you, and the rent review is free.\"\n\nIf they ask what's in it for them: \"Nothing beyond the same service you're getting. We don't pay for introductions and we don't want to be the agent who does. If a friend of yours ends up with a capped fee and no lock-in, that's the return.\"\n\nIf they say yes: \"Thank you. Easiest is to forward them this message: 'This is {{partner_first}} at Hello New Home, Local Partner for {{area}}. 12% capped at £150 a month, no lock-in, free rent review in a working day: {{area_url}}.' That's all they need.\"\n\nMentees and people in property who might want more than a referral: \"If you'd rather earn from it, there's an Introducer route: 25% of the net management fee on every instruction you bring, for as long as it's managed. No buy-in. Ask me and I'll send the programme page.\"",
+      "notes": "Introducer mention only to people already in the mentoring orbit or in property. Never offer a landlord a payment for a referral."
+    }
+  ]
+}

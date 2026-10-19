@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = (res.title if res else "New resource") ~ " | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .danger-zone { border-color: #F3C4D3; }
+  .danger-zone h2 { color: #9B1C4B; }
+  .kind-only { display: none; }
+  .kind-only.is-on { display: flex; }
+  .current-file { font-size: .9rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Resources</span>
+  <h1>{{ res.title if res else "New resource" }}</h1>
+  <div class="actions"><a class="btn btn-ghost btn-sm" href="/admin/resources">All resources</a></div>
+</div>
+
+<form method="post" action="{{ '/admin/resources/' ~ res.id if res else '/admin/resources/new' }}" class="form" enctype="multipart/form-data">
+  <div class="form-grid">
+    {{ f.text("title", "Title", vals.title, required=True) }}
+    <div class="field">
+      <label for="category">Category</label>
+      <input id="category" name="category" list="category_list" value="{{ vals.category }}">
+      <datalist id="category_list">{% for c in categories %}<option value="{{ c }}"></option>{% endfor %}</datalist>
+      <span class="hint">Pick an existing category or type a new one.</span>
+    </div>
+    {{ f.textarea("description", "Description", vals.description, rows=2, hint="One or two lines partners see under the title.") }}
+    {{ f.select("kind", "Kind", [("file", "File to download"), ("link", "External link"), ("page", "Page in the portal")], vals.kind, id="res_kind") }}
+    {{ f.text("sort", "Sort order", vals.sort, type="number", attrs='min="0" step="1"', hint="Lower numbers come first within the category.") }}
+
+    <div class="field full kind-only" data-kind="file">
+      <label for="file">File</label>
+      <input id="file" name="file" type="file" accept="{% for e in exts %}.{{ e }}{% if not loop.last %},{% endif %}{% endfor %}">
+      <span class="hint">{{ exts|join(", ") }}, up to {{ max_mb }} MB.{% if res and res.file_path %} Uploading a new file replaces the current one.{% endif %}</span>
+      {% if res and res.file_path %}
+      <p class="current-file mt-1">Current file: <a href="/files/{{ res.id }}">{{ res.file_path.split("/")[-1] }}</a></p>
+      {{ f.checkbox("remove_file", "Remove the current file") }}
+      {% endif %}
+    </div>
+    <div class="field full kind-only" data-kind="link">
+      <label for="url">Link</label>
+      <input id="url" name="url" type="url" value="{{ vals.url }}" placeholder="https://">
+      <span class="hint">Where partners are sent, for example a Google Drive folder, a training video or a software login.</span>
+    </div>
+    <div class="field full kind-only" data-kind="page">
+      <label for="body">Page body</label>
+      <textarea id="body" name="body" rows="14" class="code">{{ vals.body }}</textarea>
+      <span class="hint">Simple HTML: headings, paragraphs, lists and links. Shown inside the portal.</span>
+    </div>
+
+    {{ f.select("visibility", "Visible to", [("all", "All partners"), ("region", "One region"), ("area", "One area")], vals.visibility, id="res_visibility") }}
+    <div class="field" id="vis_region">
+      <label for="region">Region</label>
+      <select id="region" name="region"><option value="">Choose</option><option value="england"{% if vals.region == "england" %} selected{% endif %}>England</option><option value="wales"{% if vals.region == "wales" %} selected{% endif %}>Wales</option></select>
+    </div>
+    <div class="field" id="vis_area">
+      <label for="area_id">Area</label>
+      <select id="area_id" name="area_id"><option value="">Choose</option>{% for a in areas %}<option value="{{ a.id }}"{% if vals.area_id|string == a.id|string %} selected{% endif %}>{{ a.name }}</option>{% endfor %}</select>
+    </div>
+    {{ f.checkbox("is_placeholder", "Placeholder: nothing to open yet", vals.is_placeholder, hint="Cleared automatically as soon as a file, link or page body is supplied.") }}
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Save</button>
+    <a class="btn btn-ghost" href="/admin/resources">Cancel</a>
+  </div>
+</form>
+
+{% if res %}
+<section class="panel mt-2 danger-zone">
+  <h2>Delete this resource</h2>
+  <p class="help">Removes it from the library{% if res.file_path %} and deletes the uploaded file{% endif %}.</p>
+  <form method="post" action="/admin/resources/{{ res.id }}/delete" data-confirm="Delete {{ res.title }}? This cannot be undone."><button class="btn btn-danger btn-sm" type="submit">Delete resource</button></form>
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var kind = document.getElementById("res_kind"), vis = document.getElementById("res_visibility");
+  var region = document.getElementById("vis_region"), area = document.getElementById("vis_area");
+  function sync() {
+    document.querySelectorAll(".kind-only").forEach(function (el) { el.classList.toggle("is-on", el.dataset.kind === kind.value); });
+    region.style.display = vis.value === "region" ? "" : "none";
+    area.style.display = vis.value === "area" ? "" : "none";
+  }
+  kind.addEventListener("change", sync); vis.addEventListener("change", sync); sync();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,184 @@
+{
+  "slug": "{{slug}}",
+  "hub": {
+    "meta_title": "Letting agents in {{name}} | Hello New Home",
+    "meta_description": "{{name}} letting agents: 12% full management, capped at £150 a month, no VAT, no lock-in. {{partner_first}} on the ground, head office does the rest.",
+    "h1": "Letting agents in {{name}}",
+    "intro": "Hello New Home covers {{covers}}. {{partner_first}} does the viewings, inspections and move-ins locally; contracts, deposits, rent collection and compliance run from our head office. Full management is 12% of rent, capped at £150 a month, with no VAT added and no lock-in. The fee sheet is the same in every area we work.",
+    "sections": [
+      {
+        "h2": "Why landlords in {{name}} switch to us",
+        "html": "<p>Most landlords who contact us are paying a percentage plus extras to an agent who tied them in for 12 months, or are managing the property themselves and have had a rule change land on them. We change three things. The fee is 12% of rent and stops at £150 a month. Nothing is added for VAT, because we are not VAT-registered. And you can leave with 30 days' notice and no exit fee.</p><p>The fourth thing is a person. {{partner_first}} lives locally and is the one who shows the property, inspects it and meets your tenant, while head office does the regulated work every day for every area we cover.</p><p>The fee sheet is the same in every area we cover. Full management is 12% of rent, capped at £150 a month. Tenant Find is £495, no let no fee. Short-let management is 18% of net booking revenue, or 12% if you keep your own cleaner. There are no renewal, inspection or notice fees anywhere on it.</p>"
+      },
+      {
+        "h2": "Rents in {{name}} and what the fee comes to",
+        "html": "<p>The ONS average private rent for {{name}} is {{rent_avg}} a month, {{rent_change}} on the year. At that rent our fee is 12% of {{rent_avg}}, and on any rent of £1,250 or more it is £150 flat. The higher the rent, the more the cap saves against a percentage-only agent.</p><p>An area average is not your rent. The free rent review prices your property against what is letting on your street this month, and if the figure you have in mind is optimistic we tell you.</p>"
+      },
+      {
+        "h2": "Licensing and the law in {{name}}",
+        "html": "<p>{{licensing}}</p><p>{{region_law}} The paperwork, the registrations and the compliance calendar are part of full management, not add-ons. We check every address before marketing and write the licensing position into your management agreement.</p>"
+      },
+      {
+        "h2": "Who rents in {{name}}",
+        "html": "<p>{{demand}}</p><p>We let to the people that demand produces, at the rent the street supports, and we manage long lets, shared houses and short lets from the same team so the property can take whichever shape earns most.</p><p>Long lets go to referenced tenants through Vouch or Goodlord. Shared houses are let room by room through hellomyroom, our shared-house team, with the licence and fire safety managed together. Short lets are priced by the season for {{name}} and tracked night by night. If the numbers change, Flex Switch moves the property between them with no re-onboarding.</p>"
+      },
+      {
+        "h2": "How the Local Partner model works here",
+        "html": "<p>{{partner_first}} is the face of Hello New Home in {{name}}: valuations, photographs, viewings, quarterly inspections, move-ins and the handover if you are switching from another agent. Head office does everything regulated: the agreement, deposit protection, rent collection, the repairs desk, the compliance calendar and any licence application. {{partner_first}} never holds your money, and your agreement is with Hello New Home.</p><p>If you know your patch and want to open the next town, the <a href=\"/partners-programme\">Local Partner programme</a> explains how it works and what head office provides.</p>"
+      },
+      {
+        "h2": "What to do next",
+        "html": "<p>Ask for a <a href=\"/valuation?area={{slug}}\">free rent review</a>. Send the address and we call within one working day with a realistic rent for your street, the licensing position for the property and a written comparison of our capped fee against what you pay now. If you think the property might earn more as a short let, ask for the <a href=\"/serviced-accommodation\">free short-let appraisal</a> and you get both figures side by side.</p>"
+      }
+    ],
+    "faqs": [
+      {
+        "q": "How much does full management cost in {{name}}?",
+        "a": "12% of the monthly rent, capped at £150 a month, with no VAT added. On the {{name}} average rent of {{rent_avg}} the fee is 12% of that figure, and on any rent of £1,250 or more it is £150 flat. Tenant Find alone is £495, no let no fee."
+      },
+      {
+        "q": "Do I need a licence to let in {{name}}?",
+        "a": "{{licensing}}"
+      },
+      {
+        "q": "Who looks after my property in {{name}}?",
+        "a": "{{partner_first}} does the viewings, quarterly inspections and move-ins locally. Head office handles the agreement, deposit, rent collection, repairs desk and compliance. The agreement is with Hello New Home, and {{partner_first}} never holds your money."
+      },
+      {
+        "q": "Is there a minimum term?",
+        "a": "No. Full management runs month to month and you can end it with 30 days' notice. There is no exit fee, and we hand the file to you or your next agent cleanly."
+      },
+      {
+        "q": "Can I short let my property in {{name}}?",
+        "a": "{{shortlet}}"
+      }
+    ]
+  },
+  "lettings": {
+    "meta_title": "Property management in {{name}} | Hello New Home",
+    "meta_description": "Full management in {{name}}: 12% of rent, capped at £150 a month, no VAT. Paperwork handled, {{partner_first}} on the ground, 30 days' notice to leave.",
+    "h1": "Property management in {{name}}",
+    "intro": "Full management in {{name}} means the rent arrives on the same day each month, the certificates are on a calendar and the paperwork is done before the tenant moves in. {{partner_first}} does the visits; head office does the rest. The fee is 12% of rent, capped at £150 a month, no VAT, and you can leave with 30 days' notice.",
+    "sections": [
+      {
+        "h2": "What full management includes",
+        "html": "<ul><li>Photographs, listings on Rightmove, Zoopla and OnTheMarket, and accompanied viewings by {{partner_first}}.</li><li>Referencing through Vouch or Goodlord, the agreement and the written statement, and the identity and eligibility checks the law requires.</li><li>Deposit protected within 30 days and the holding deposit kept to one week's rent.</li><li>Rent collection, arrears chasing from the first missed day, and a repairs line answered 24 hours a day.</li><li>Quarterly inspections with a written report and photographs.</li><li>A compliance calendar for gas, electrical, EPC, smoke and carbon monoxide alarms, registrations and licence renewals.</li><li>A clear asking rent on the listing and the rent collected on the day it is due.</li><li>An annual rent review and a year-end statement.</li></ul>"
+      },
+      {
+        "h2": "The fee on {{name}} rents",
+        "html": "<p>12% of rent, capped at £150 a month, no VAT added. On the {{name}} average of {{rent_avg}} the fee is 12% of that figure; on any rent of £1,250 or more it is £150. There are no renewal, inspection or notice fees. Tenant Find alone is £495, no let no fee, and covers marketing, viewings, referencing, the agreement, deposit registration and the inventory. The <a href=\"/fees\">fee sheet</a> is identical in every area.</p><p>The cap starts at £1,250 a month. Below it you pay 12%; above it you pay £150, whether the rent is £1,300 or £2,300. The higher the rent, the more the cap saves against a percentage-only agent.</p>"
+      },
+      {
+        "h2": "The paperwork we do for you",
+        "html": "<p>{{region_law}}</p><p>{{licensing}} We serve the notices, keep the signed copies and put every date on the calendar, and if something in an existing file is missing we tell you before we take over.</p>"
+      },
+      {
+        "h2": "Moving a tenanted property to us",
+        "html": "<p>Your tenant does not need to move for you to. We give notice to your current agent, transfer the deposit and the file, check the paperwork and certificates, and {{partner_first}} introduces themselves to the tenant in person. The only thing that changes for the tenant is the repairs number.</p><p>If anything in the file is missing, a certificate that has lapsed or a notice that was never served, you hear about it before we take over, not after. We do not describe a property as compliant until we have inspected it.</p>"
+      },
+      {
+        "h2": "Next step: the free rent review",
+        "html": "<p>Request the <a href=\"/valuation?area={{slug}}\">free rent review</a> with the address and your current fee. Within one working day you get a realistic rent for your street and a written comparison against 12% capped at £150. No obligation, and {{partner_first}} can come to the property if you would like to talk it through in person.</p>"
+      }
+    ],
+    "faqs": [
+      {
+        "q": "What does 12% capped at £150 mean?",
+        "a": "You pay 12% of each month's rent until that reaches £150, and never more than £150. No VAT is added to any Hello New Home fee, and there are no renewal, inspection or notice charges."
+      },
+      {
+        "q": "Can you take over a property that is already let?",
+        "a": "Yes. We serve notice on your current agent, transfer the deposit and the file, check the paperwork and certificates, and {{partner_first}} meets the tenant. The tenant stays, and the only change for them is the repairs number."
+      },
+      {
+        "q": "How often is the property inspected?",
+        "a": "Quarterly, by {{partner_first}}, with a written report and photographs sent to you. Any visit a repair needs is extra to that, at no extra fee."
+      },
+      {
+        "q": "Do you protect the deposit?",
+        "a": "Yes. Head office registers the deposit with an approved scheme within 30 days and serves the required information. The holding deposit is kept to one week's rent."
+      },
+      {
+        "q": "Is there a minimum term?",
+        "a": "No. Full management runs month to month and you can end it with 30 days' notice. There is no exit fee."
+      }
+    ]
+  },
+  "shortlets": {
+    "meta_title": "Airbnb & short-let management {{name}} | Hello New Home",
+    "meta_description": "Short-let management in {{name}}. 18% of net booking revenue, no VAT, the local rules checked, and a free appraisal against a long let first.",
+    "h1": "Airbnb and short-let management in {{name}}",
+    "intro": "Some properties in {{name}} earn more as short lets. Some do not. We run long lets and short lets from the same team, so our free appraisal shows your property both ways, net of platform fees, cleaning, utilities and management, before you decide. Full SA Management is 18% of net booking revenue, and if the long let wins we say so and manage that instead.",
+    "sections": [
+      {
+        "h2": "Short-stay demand in {{name}}",
+        "html": "<p>{{demand}}</p><p>The appraisal uses occupancy for {{name}} by month rather than a national average, and if your address is in the wrong part of the area for short stays we tell you and quote the long let instead.</p><p>Short-stay income is seasonal almost everywhere, and the right question is not what a good week earns but what a whole year nets after cleaning, platform fees, utilities, voids and management. That is the figure the appraisal gives you, alongside the long let.</p>"
+      },
+      {
+        "h2": "What we charge",
+        "html": "<p>Full SA Management is 18% of net booking revenue, cleaning at cost: pricing, guest vetting and messaging 24 hours a day, cleaning and linen, restocking, repairs, reviews, a monthly owner statement and the night-count tracker. SA Co-Host is 12% if you keep your own cleaner and want the rest handled. SA Launch is £495 for photography, listings, pricing rules, house manual and the compliance pack, waived with 12 months of Full SA Management. No VAT, no 12-month minimum, 30 days' notice to leave.</p>"
+      },
+      {
+        "h2": "The rules for a short let in {{name}}",
+        "html": "<p>{{shortlet}}</p><p>The compliance pack covers the fire risk assessment, gas and electrical certificates, PAT testing and an insurance check. It is the list we work to, not legal advice, and the appraisal puts the position for your address in writing.</p><p>Business rates or council tax depends on how many nights the property is available and actually let, and a council can add a premium on second homes that miss the test. Our night-count tracker reports where you stand every month so there are no surprises in April.</p>"
+      },
+      {
+        "h2": "One team, both models",
+        "html": "<p>Flex Switch is included: a managed property can move between short let and tenancy with us and no re-onboarding. A national co-host cannot take a property back as a long let, and a high-street agent will not run it as a short let. We do both, and {{partner_first}} is the one who meets the cleaner, checks the changeover and answers the door. Head office runs pricing and guest messaging around the clock; {{partner_first}} handles the changeovers on the ground.</p>"
+      },
+      {
+        "h2": "Next step: the free short-let appraisal",
+        "html": "<p>Request the <a href=\"/serviced-accommodation\">free short-let appraisal</a> with your address. You get the long-let figure and the short-let figure side by side, net of every cost, plus the rules for your property in writing. If the long let wins, the <a href=\"/valuation?area={{slug}}\">free rent review</a> figure is the same one and we manage it at 12% capped at £150.</p>"
+      }
+    ],
+    "faqs": [
+      {
+        "q": "How much does short-let management cost in {{name}}?",
+        "a": "Full SA Management is 18% of net booking revenue, cleaning at cost. SA Co-Host is 12%. SA Launch is £495, waived with 12 months of Full SA Management. No VAT is added and there is no 12-month minimum."
+      },
+      {
+        "q": "What rules apply to a short let in {{name}}?",
+        "a": "{{shortlet}}"
+      },
+      {
+        "q": "Will a short let always earn more than a long let?",
+        "a": "No. The free appraisal shows both figures net of every cost, using local occupancy, and if the long let wins we manage that instead."
+      },
+      {
+        "q": "Can I switch between short let and long let?",
+        "a": "Yes. Flex Switch is included: the property moves between short let and tenancy with the same agent, the same statement and no re-onboarding."
+      },
+      {
+        "q": "Who handles the guests and the cleaning?",
+        "a": "Head office runs pricing and guest messaging 24 hours a day; {{partner_first}} coordinates the local cleaner and changeovers. With SA Co-Host you keep your own cleaner and we do the rest."
+      }
+    ]
+  },
+  "neighbourhoods": [
+    {
+      "name": "{{place_1}}",
+      "blurb": "One of the places we know in {{name}}. {{partner_first}} does the viewings and inspections here and knows what is letting street by street."
+    },
+    {
+      "name": "{{place_2}}",
+      "blurb": "Part of the area we cover in {{name}}. The free rent review prices your property against current lets here rather than an area average."
+    },
+    {
+      "name": "{{place_3}}",
+      "blurb": "Covered from day one in {{name}}. Long lets, shared houses and short lets are all managed by the same team."
+    },
+    {
+      "name": "{{place_4}}",
+      "blurb": "Within our {{name}} patch. {{partner_first}} lives locally and head office handles the paperwork, so nothing waits for a visit from elsewhere."
+    },
+    {
+      "name": "{{place_5}}",
+      "blurb": "A place we let in {{name}}. Ask for the free rent review and we tell you what the street supports this month."
+    },
+    {
+      "name": "{{place_6}}",
+      "blurb": "Part of the {{name}} area. The same capped fee, the same 30 days' notice and the same Local Partner as everywhere else we cover."
+    }
+  ],
+  "sources": []
+}

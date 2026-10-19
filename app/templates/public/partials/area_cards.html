@@ -1,0 +1,15 @@
+{% for a in areas %}
+<article class="card area-card">
+  <span class="pill{% if a.is_hq %} pill-dark{% endif %}">{{ a.label }} · {{ "Wales" if a.region == "wales" else "England" }}{% if a.status == "coming" %} · Opening soon{% endif %}</span>
+  <h3>{{ a.name }}</h3>
+  <p>{{ a.covers }}.</p>
+  <p class="small muted">{{ partner_name(a) }}</p>
+  <a class="card-link" href="/areas/{{ a.slug }}">Hello New Home {{ a.name }}</a>
+</article>
+{% endfor %}
+<article class="card area-card area-card-next">
+  <span class="pill">Your town next?</span>
+  <h3>Open your area</h3>
+  <p>We open new areas through Local Partners who know their patch. Head office handles everything regulated; you bring the landlords.</p>
+  <a class="card-link" href="/partners-programme">Local Partner programme</a>
+</article>

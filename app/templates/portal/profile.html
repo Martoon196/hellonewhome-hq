@@ -1,0 +1,71 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .profile-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr); gap: 1.4rem; align-items: start; }
+  @media (max-width: 1000px) { .profile-grid { grid-template-columns: 1fr; } }
+  .photo-row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .photo-row img, .photo-row .no-photo { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; background: var(--mist); display: grid; place-items: center; color: var(--muted); font-size: .8rem; border: 1px solid var(--line); }
+  .count { font-size: .82rem; color: var(--muted); }
+  .preview-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.4rem; max-width: 420px; }
+  .preview-art { aspect-ratio: 1 / 1; border-radius: 12px; background: linear-gradient(135deg, var(--pink-soft), var(--mist)); display: grid; place-items: center; color: var(--muted); font-size: .85rem; overflow: hidden; }
+  .preview-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .live-links { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; gap: .35rem; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">My profile</span>
+  <h1>What landlords see</h1>
+  <p class="help">Your name, photo and a short bio appear on your area page and in every template in the marketing kit.</p>
+</div>
+{% if not partner %}
+<section class="panel"><p class="muted">This login is not attached to a partner profile. Head office logins have nothing to edit here.</p></section>
+{% else %}
+<div class="profile-grid">
+  <form method="post" action="/partners/profile" enctype="multipart/form-data" class="form">
+    <div class="form-grid">
+      <div class="field"><label for="first_name">First name</label><input id="first_name" name="first_name" value="{{ partner.first_name }}" maxlength="60" autocomplete="given-name"><span class="hint">Used where templates say "WhatsApp {{ partner.display_first or 'you' }}".</span></div>
+      <div class="field"><label for="name">Full name</label><input id="name" name="name" value="{{ partner.name }}" maxlength="120" required autocomplete="name"></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email_shown" value="{{ partner.email or user.email }}" readonly><span class="hint">Changed by head office. Ask on WhatsApp if it is wrong.</span></div>
+      <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="{{ partner.phone }}" maxlength="40" autocomplete="tel"></div>
+      <div class="field"><label for="whatsapp">WhatsApp number</label><input id="whatsapp" name="whatsapp" value="{{ partner.whatsapp }}" maxlength="20" inputmode="tel" placeholder="07700 900123"><span class="hint">Stored in the international form (44...) for the wa.me links.</span></div>
+      <div class="field"><label for="whatsapp_display">WhatsApp as shown</label><input id="whatsapp_display" name="whatsapp_display" value="{{ partner.whatsapp_display }}" maxlength="30" placeholder="07700 900123"><span class="hint">Leave blank to format it for you.</span></div>
+      <div class="field full"><label for="bio">Bio</label><textarea id="bio" name="bio" maxlength="{{ bio_max }}" rows="4" placeholder="Two lines: how long you have lived locally, what you do in the area, why landlords can trust you.">{{ partner.bio }}</textarea><span class="hint count"><span id="bio-count">{{ partner.bio | length }}</span> of {{ bio_max }} characters</span></div>
+      <div class="field full"><label for="photo">Photo</label>
+        <div class="photo-row">
+          {% if photo_url %}<img src="{{ photo_url }}" alt="Your current photo">{% else %}<span class="no-photo">No photo</span>{% endif %}
+          <div>
+            <input id="photo" name="photo" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+            <span class="hint">JPG, PNG or WebP up to {{ photo_max_mb }} MB. Head and shoulders, daylight, square works best.</span>
+            {% if photo_url %}<label class="hint" style="display:block;margin-top:.4rem"><input type="checkbox" name="remove_photo" value="1"> Remove the current photo</label>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">Save profile</button></div>
+  </form>
+  <aside>
+    <section class="panel">
+      <h2>How it appears on your area page</h2>
+      <div class="preview-card">
+        <div class="preview-art">{% if photo_url %}<img src="{{ photo_url }}" alt="{{ partner.name }}">{% else %}{{ partner.name }}{% endif %}</div>
+        <h3 class="mt-1">{{ partner.name }}</h3>
+        <p class="muted">Local Partner for {{ areas[0].name if areas else "your area" }}</p>
+        <p class="mb-0">{{ partner.bio or "[Partner bio]" }}</p>
+        <p class="small muted mt-1 mb-0">WhatsApp {{ partner.whatsapp_display or partner.whatsapp or wa_display_fallback }} · Head office {{ s.hq_phone }}</p>
+      </div>
+      {% if areas %}
+      <h3 class="mt-2" style="font-size:1rem">Live pages</h3>
+      <ul class="live-links">
+        {% for a in areas %}<li><a href="{{ base_url }}/areas/{{ a.slug }}" target="_blank" rel="noopener">{{ a.name }} area page</a>{% if a.status != "active" %} <span class="status status-{{ a.status }}">{{ a.status }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+      {% else %}<p class="help mt-1">No area is attached to your profile yet.</p>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  var bio = document.getElementById("bio"), count = document.getElementById("bio-count");
+  if (bio && count) bio.addEventListener("input", function () { count.textContent = bio.value.length; });
+})();
+</script>{% endblock %}

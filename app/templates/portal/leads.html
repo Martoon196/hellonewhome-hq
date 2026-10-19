@@ -1,0 +1,55 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  tr.row-breach td { background: #FDE8EE; }
+  tr.row-breach td:first-child { border-left: 4px solid #9B1C4B; }
+  .sla-tag { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9B1C4B; margin-left: .4rem; }
+  .pager { display: flex; gap: .8rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+  .filters { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; margin-bottom: 1.2rem; }
+  .filters .field { min-width: 160px; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Leads</span>
+  <h1>Leads in your area{{ "s" if user.role == "admin" else "" }}</h1>
+  <p class="help">Contact every new lead within {{ sla_hours|int if sla_hours == sla_hours|int else sla_hours }} working hours. Rows in pink are new and have waited longer than that.</p>
+</div>
+<form method="get" action="/partners/leads" class="filters">
+  <div class="field"><label for="f-status">Status</label>
+    <select id="f-status" name="status"><option value="">All statuses</option>{% for st in statuses %}<option value="{{ st }}"{% if st == status %} selected{% endif %}>{{ st }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="f-kind">Type</label>
+    <select id="f-kind" name="kind"><option value="">All types</option>{% for k in kinds %}<option value="{{ k }}"{% if k == kind %} selected{% endif %}>{{ kind_labels.get(k, k | replace("_", " ")) }}</option>{% endfor %}</select></div>
+  <button class="btn btn-ghost btn-sm" type="submit">Filter</button>
+  {% if status or kind %}<a class="btn btn-ghost btn-sm" href="/partners/leads">Clear</a>{% endif %}
+</form>
+<section class="panel">
+  <p class="small muted">{{ total }} lead{{ "s" if total != 1 else "" }}{% if pages > 1 %}, page {{ page }} of {{ pages }}{% endif %}</p>
+  {% if rows %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>When</th><th>Who</th><th>Type</th><th>Postcode</th><th>Area</th><th>Phone</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for l in rows %}
+    {% set breach = l.status == "new" and l.created_at < cutoff %}
+    <tr{% if breach %} class="row-breach"{% endif %}>
+      <td>{{ l.created_at | uk("%d %b %Y %H:%M") }}</td>
+      <td><a href="/partners/leads/{{ l.id }}">{{ l.name or "(no name)" }}</a>{% if breach %}<span class="sla-tag">Past SLA</span>{% endif %}</td>
+      <td>{{ kind_labels.get(l.kind, l.kind | replace("_", " ")) }}</td>
+      <td>{{ l.postcode }}</td>
+      <td>{{ l.area.name if l.area else "not covered" }}</td>
+      <td>{{ l.phone }}</td>
+      <td><span class="status status-{{ l.status }}">{{ l.status }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Pages">
+    {% if page > 1 %}<a class="btn btn-ghost btn-sm" href="{{ page_url(page - 1) }}">Newer</a>{% endif %}
+    <span class="small muted">Page {{ page }} of {{ pages }}</span>
+    {% if page < pages %}<a class="btn btn-ghost btn-sm" href="{{ page_url(page + 1) }}">Older</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% else %}<p class="muted">No leads match. New enquiries from your area page and the postcode finder land here.</p>{% endif %}
+</section>
+{% endblock %}

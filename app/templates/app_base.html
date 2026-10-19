@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title or "Hello New Home HQ" }}</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/assets/app.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+{% block head %}{% endblock %}
+</head>
+<body class="app-body">
+<div class="app-shell">
+  <aside class="app-side">
+    <a class="app-brand" href="{{ home_url }}"><span class="wordmark">hello<em>new</em>home</span><small>{{ app_name }}</small></a>
+    <nav class="app-nav" aria-label="{{ app_name }}">
+      {% block sidenav %}{% endblock %}
+    </nav>
+    <div class="app-side-foot">
+      {% if user %}<p class="small">{{ user.email }}</p>
+      <form method="post" action="{{ logout_url }}"><button class="btn btn-ghost btn-sm" type="submit">Log out</button></form>{% endif %}
+    </div>
+  </aside>
+  <main class="app-main">
+    {% if flash %}<div class="flash flash-{{ flash_kind or 'ok' }}">{{ flash }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="/assets/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

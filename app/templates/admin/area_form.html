@@ -1,0 +1,85 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = (area.name if area else "New area") ~ " | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .danger-zone { border-color: #F3C4D3; }
+  .danger-zone h2 { color: #9B1C4B; }
+  .hq-only { opacity: .55; }
+  .hq-only.is-on { opacity: 1; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Areas</span>
+  <h1>{{ area.name if area else "New area" }}</h1>
+  <div class="actions">
+    <a class="btn btn-ghost btn-sm" href="/admin/areas">All areas</a>
+    {% if area and area.is_public %}<a class="btn btn-ghost btn-sm" href="/areas/{{ area.slug }}" target="_blank" rel="noopener">Live page</a>{% endif %}
+    {% if area %}<a class="btn btn-ghost btn-sm" href="/admin/leads?area={{ area.id }}">Leads ({{ lead_count }})</a>{% endif %}
+  </div>
+</div>
+
+<form method="post" action="{{ '/admin/areas/' ~ area.id if area else '/admin/areas/new' }}" class="form">
+  <div class="form-grid">
+    {{ f.text("name", "Name", vals.name, required=True, id="area_name", hint="As it appears on the site, e.g. Durham") }}
+    {{ f.text("slug", "Slug", vals.slug, id="area_slug", hint="Web address: /areas/slug. Lower-case letters, numbers and hyphens. Fills in from the name.") }}
+    {{ f.select("region", "Region", [("england", "England"), ("wales", "Wales")], vals.region) }}
+    {{ f.select("role", "Run by", [("partner", "Local Partner"), ("hq", "Head office")], vals.role, id="area_role") }}
+    {{ f.select("status", "Status", [("active", "Active"), ("coming", "Coming soon"), ("paused", "Paused"), ("hidden", "Hidden")], vals.status, hint="Active and coming soon are public. Paused and hidden are not.") }}
+    {{ f.select("partner_id", "Partner", partner_options, vals.partner_id, hint="Partner areas only. Head office areas ignore this.") }}
+    {{ f.text("covers", "Covers", vals.covers, hint="Plain list of towns, e.g. Durham City, Chester-le-Street, Consett and County Durham") }}
+    {{ f.text("sort", "Sort order", vals.sort, type="number", hint="Lower numbers come first on the site.", attrs='min="0" step="1"') }}
+    {{ f.textarea("postcodes", "Postcode districts", vals.postcodes, rows=3, hint="Outward codes such as DH1 or SP10, or a whole postcode area such as SE. Separate with commas, spaces or new lines. A district can belong to one area only.") }}
+    {{ f.textarea("places", "Places", vals.places, rows=5, hint="One per line. Used for neighbourhood cards and the place tokens in the marketing kit.") }}
+    {{ f.textarea("demand", "Demand", vals.demand, rows=3, hint="Who rents here and why: employers, universities, hospitals, tourism.") }}
+    {{ f.textarea("licensing", "Licensing", vals.licensing, rows=3, hint="HMO and selective licensing, Rent Smart Wales, anything a landlord must know.") }}
+    {{ f.textarea("shortlet", "Short lets", vals.shortlet, rows=3, hint="Article 4 directions, registration schemes, the 182-night test.") }}
+    {{ f.text("rent_avg", "Average rent", vals.rent_avg, hint="e.g. £838") }}
+    {{ f.text("rent_change", "Annual change", vals.rent_change, hint="e.g. +5.5%") }}
+    {{ f.textarea("rent_note", "Rent note", vals.rent_note, rows=2, hint="Where the figure comes from and when.") }}
+  </div>
+
+  <h2>Head office contact</h2>
+  <p class="help">Used for head office areas only. Partner areas show the partner's own WhatsApp and phone.</p>
+  <div class="form-grid hq-only{% if vals.role == 'hq' %} is-on{% endif %}" id="hq_contact">
+    {{ f.text("phone", "Phone", vals.phone) }}
+    {{ f.text("whatsapp", "WhatsApp number", vals.whatsapp, hint="Digits starting 44, e.g. 447513552133. Spaces and a leading + are removed.") }}
+    {{ f.text("whatsapp_display", "WhatsApp as shown", vals.whatsapp_display, hint="e.g. 0751 355 2133") }}
+  </div>
+
+  <h2>Bespoke content</h2>
+  <div class="form-grid">
+    {{ f.textarea("content", "Content JSON", vals.content, rows=16, cls="code", hint='Leave blank to use the tokenised template for this area. Otherwise a JSON object with the keys hub, lettings, shortlets and neighbourhoods (sources is optional). Each page holds meta_title, meta_description, h1, intro, sections and faqs.') }}
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit" name="action" value="save">Save</button>
+    <button class="btn btn-ghost" type="submit" name="action" value="view">Save and view live page</button>
+    <a class="btn btn-ghost" href="/admin/areas">Cancel</a>
+  </div>
+</form>
+
+{% if area %}
+<section class="panel mt-2 danger-zone">
+  <h2>Delete this area</h2>
+  {% if lead_count %}
+  <p class="help">{{ lead_count }} lead{{ "s" if lead_count != 1 else "" }} reference this area, so it cannot be deleted. Set its status to hidden instead and it disappears from the site while the leads keep their history.</p>
+  {% elif resource_count %}
+  <p class="help">{{ resource_count }} resource{{ "s" if resource_count != 1 else "" }} are limited to this area. Change their visibility first, or set the area to hidden instead.</p>
+  {% else %}
+  <p class="help">Deleting removes the area and its pages for good. If you may need it again, set its status to hidden instead.</p>
+  <form method="post" action="/admin/areas/{{ area.id }}/delete" data-confirm="Delete {{ area.name }}? This cannot be undone."><button class="btn btn-danger btn-sm" type="submit">Delete area</button></form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var role = document.getElementById("area_role"), box = document.getElementById("hq_contact");
+  if (!role || !box) return;
+  role.addEventListener("change", function () { box.classList.toggle("is-on", role.value === "hq"); });
+})();
+</script>
+{% endblock %}

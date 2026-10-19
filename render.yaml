@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: hellonewhome-hq
+    runtime: python
+    plan: starter
+    rootDir: hq
+    buildCommand: pip install -r requirements.txt
+    # --proxy-headers / --forwarded-allow-ips: Render's proxy is the only hop, so request.client.host becomes
+    # the visitor's address and the login and lead throttles are per visitor rather than per proxy.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /healthz
+    disk:
+      name: hnh-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HNH_DATA_DIR
+        value: /var/data/db
+      - key: HNH_UPLOAD_DIR
+        value: /var/data/uploads
+      - key: BASE_URL
+        value: https://hellonewhome.co.uk
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_EMAIL
+        value: lettings@hellonewhome.co.uk
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SECURE_COOKIES
+        value: "1"

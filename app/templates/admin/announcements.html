@@ -1,0 +1,34 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Announcements | Admin" %}
+{% block head %}{{ f.styles() }}{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">From head office</span>
+  <h1>Announcements</h1>
+  <div class="actions"><a class="btn btn-primary btn-sm" href="/admin/announcements/new">New announcement</a></div>
+</div>
+<section class="panel">
+  <p class="help">Partners see the five most recent on their dashboard, pinned ones first.</p>
+  {% if items %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>Title</th><th>Posted</th><th>Pinned</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for n in items %}
+    <tr>
+      <td><a href="/admin/announcements/{{ n.id }}"><strong>{{ n.title }}</strong></a>{% if n.body %}<br><span class="small muted">{{ n.body|truncate(120) }}</span>{% endif %}</td>
+      <td class="nowrap">{{ n.created_at | uk("%d %b %Y") }}</td>
+      <td>{% if n.pinned %}<span class="status status-new">Pinned</span>{% else %}<span class="muted">No</span>{% endif %}</td>
+      <td class="row-actions">
+        <form method="post" action="/admin/announcements/{{ n.id }}/pin"><button class="btn btn-ghost btn-sm" type="submit">{{ "Unpin" if n.pinned else "Pin" }}</button></form>
+        <form method="post" action="/admin/announcements/{{ n.id }}/delete" data-confirm="Delete {{ n.title }}?"><button class="btn btn-danger btn-sm" type="submit">Delete</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">Nothing posted yet.</p>{% endif %}
+</section>
+{% endblock %}

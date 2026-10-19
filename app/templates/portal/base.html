@@ -1,0 +1,14 @@
+{% extends "app_base.html" %}
+{% set app_name = "Partner portal" %}
+{% set home_url = "/partners" %}
+{% set logout_url = "/partners/logout" %}
+{% block sidenav %}
+<a href="/partners"{% if section == "dashboard" %} class="is-active"{% endif %}>Dashboard</a>
+<a href="/partners/leads"{% if section == "leads" %} class="is-active"{% endif %}>Leads</a>
+<a href="/partners/kit"{% if section == "kit" %} class="is-active"{% endif %}>Marketing kit</a>
+<a href="/partners/resources"{% if section == "resources" %} class="is-active"{% endif %}>Resources</a>
+<a href="/partners/area"{% if section == "area" %} class="is-active"{% endif %}>My area</a>
+<a href="/partners/profile"{% if section == "profile" %} class="is-active"{% endif %}>My profile</a>
+<a href="/partners/password"{% if section == "password" %} class="is-active"{% endif %}>Password</a>
+{% if user and user.role == "admin" %}<a href="/admin" class="is-admin">Admin panel</a>{% endif %}
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Audit log | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  table.data td.detail { max-width: 46ch; word-break: break-word; }
+  .action { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title"><span class="eyebrow">History</span><h1>Audit log</h1></div>
+<section class="panel">
+  <p class="help">The 200 most recent changes made in the admin panel and the partner portal.</p>
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+    <tbody>
+    {% for entry, email in rows %}
+    <tr>
+      <td class="nowrap">{{ entry.created_at | uk("%d %b %Y %H:%M:%S") }}</td>
+      <td>{{ email or "system" }}</td>
+      <td class="action">{{ entry.action }}</td>
+      <td>{{ entry.target }}</td>
+      <td class="detail">{{ entry.detail }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="muted">Nothing recorded yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Admin users | Admin" %}
+{% block head %}{{ f.styles() }}{% endblock %}
+{% block content %}
+<div class="page-title"><span class="eyebrow">Access</span><h1>Admin users</h1></div>
+<div class="two-col">
+  <section class="panel">
+    <h2>Who can use this panel</h2>
+    <div class="table-scroll">
+    <table class="data">
+      <thead><tr><th>Email</th><th>Status</th><th>Last login</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+      {% for u in admins %}
+      <tr>
+        <td>{{ u.email }}{% if u.id == me.id %} <span class="small muted">(you)</span>{% endif %}{% if u.must_change_password %}<br><span class="small muted">First login pending</span>{% endif %}</td>
+        <td>{% if u.is_active %}<span class="status status-active">Active</span>{% else %}<span class="status status-paused">Inactive</span>{% endif %}</td>
+        <td class="nowrap">{{ u.last_login | uk("%d %b %Y %H:%M") or "Never" }}</td>
+        <td class="nowrap">{{ u.created_at | uk("%d %b %Y") }}</td>
+        <td class="row-actions">
+          {% if u.id != me.id %}
+            {% if u.is_active %}
+            <form method="post" action="/admin/users/{{ u.id }}/deactivate" data-confirm="Deactivate {{ u.email }}?"><button class="btn btn-danger btn-sm" type="submit">Deactivate</button></form>
+            {% else %}
+            <form method="post" action="/admin/users/{{ u.id }}/activate"><button class="btn btn-ghost btn-sm" type="submit">Reactivate</button></form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <p class="help mt-1">Partner logins are managed from each partner's page.</p>
+  </section>
+  <form method="post" action="/admin/users" class="form">
+    <h2 class="mt-0" style="border:0;padding:0">Add an admin</h2>
+    {{ f.text("email", "Email", "", type="email", required=True, hint="A temporary password is shown once on the next screen.") }}
+    <div class="form-actions"><button class="btn btn-primary" type="submit">Create admin</button></div>
+  </form>
+</div>
+{% endblock %}

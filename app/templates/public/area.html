@@ -1,0 +1,156 @@
+{% extends "public/base.html" %}
+{% set wa_text = "Hi, I'd like to talk about my property in " ~ area.name ~ "." %}
+{% set has_blurbs = neighbourhoods | selectattr("blurb") | list %}
+{% macro postcode_chips(area) %}
+{% if area.postcodes %}
+<div class="covered">
+  <h3 class="covered-h">Nearby and also covered</h3>
+  <ul class="chips" aria-label="Postcode districts covered by Hello New Home {{ area.name }}">
+    {% for p in area.postcodes %}<li class="chip">{{ p }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endmacro %}
+{% block head %}
+<style>
+.opening-band { background: var(--pink-soft); border-bottom: 2px solid var(--pink); padding-block: 1rem; }
+.opening-band .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem 1.5rem; }
+.opening-band p { margin: 0; color: var(--ink); }
+.opening-band strong { color: var(--pink-deep); }
+.opening-band .small { color: var(--muted); }
+.covered-h { font-size: 1rem; margin: 0 0 .5rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; margin: 0; padding: 0; }
+.chip { background: var(--mist); border: 1px solid var(--line); border-radius: 999px; padding: .2rem .65rem; font-size: .82rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.article + .covered { margin-top: 2rem; }
+</style>
+{% endblock %}
+{% block content %}
+<section class="band-dark page-head">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="breadcrumb" style="color:#CFCBD1"><a href="/areas">Areas</a> · <a href="/areas/{{ area.slug }}">{{ area.name }}</a>{% if page != "hub" %} · {{ "Lettings and management" if page == "lettings" else "Short lets" }}{% endif %}</p>
+      <span class="eyebrow">{{ area.label }} · {{ area.name }}{% if area.status == "coming" %} · Opening soon{% endif %}</span>
+      <h1>{{ pc.h1 }}</h1>
+      <p class="lede">{{ pc.intro }}</p>
+      <div class="cta-row">
+        {% if page == "shortlets" %}
+        <a class="btn btn-primary btn-lg" href="/serviced-accommodation?area={{ area.slug }}#appraisal">Get a free short-let appraisal</a>
+        {% else %}
+        <a class="btn btn-primary btn-lg" href="/valuation?area={{ area.slug }}">Get a free rent review</a>
+        {% endif %}
+        <a class="btn btn-wa btn-lg" href="{{ ctx.whatsapp_link }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">WhatsApp {{ ctx.partner_first }}</a>
+      </div>
+      <ul class="hero-points">
+        <li>Full management {{ s.fees.full_management_pct }}, capped at {{ s.fees.full_management_cap }} a month</li>
+        <li>No lock-in, 30 days' notice</li>
+        <li>No VAT on any fee</li>
+        <li>{{ ctx.region_law }}</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card" style="max-width:420px;margin-inline:auto">
+        {% if not area.is_hq %}
+        <div class="listing-art" style="aspect-ratio:1/1;border-radius:12px">
+          {% if area.partner and area.partner.photo_path and area.partner.status != "pending" %}<img src="/uploads/{{ area.partner.photo_path }}" alt="{{ ctx.partner }}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">{% else %}<span class="tag">Photo</span>{{ ctx.partner }}{% endif %}
+        </div>
+        {% endif %}
+        <h3 class="mt-1">{{ ctx.partner }}</h3>
+        <p class="muted">{{ "Head office" if ctx.partner == "The head office team" else area.label }} for {{ area.name }}</p>
+        <p class="mb-0">{{ ctx.partner_bio }}</p>
+        <p class="small muted mt-1 mb-0">WhatsApp {{ ctx.whatsapp_display }} · Head office {{ s.hq_phone }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if area.status == "coming" %}
+<section class="opening-band" aria-label="Opening soon">
+  <div class="wrap">
+    <p><strong>Opening soon in {{ area.name }}:</strong> head office is taking enquiries now. Your property is looked after from Swansea until the local team is in place, on the same capped fee.</p>
+    <p class="small">Call <a href="tel:{{ s.hq_phone | replace(' ', '') }}">{{ s.hq_phone }}</a> or WhatsApp <a href="https://wa.me/{{ s.hq_whatsapp }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">{{ s.hq_whatsapp_display }}</a></p>
+  </div>
+</section>
+{% endif %}
+
+<section class="band">
+  <div class="wrap">
+    <nav class="area-subnav" aria-label="{{ area.name }} pages">
+      <a href="/areas/{{ area.slug }}"{% if page == "hub" %} class="is-active"{% endif %}>Letting agents in {{ area.name }}</a>
+      <a href="/areas/{{ area.slug }}/lettings"{% if page == "lettings" %} class="is-active"{% endif %}>Property management</a>
+      <a href="/areas/{{ area.slug }}/short-lets"{% if page == "shortlets" %} class="is-active"{% endif %}>Short-let management</a>
+    </nav>
+    <div class="article">
+      {% for sec in pc.sections %}
+      <h2>{{ sec.h2 }}</h2>
+      {{ sec.html | safe }}
+      {% endfor %}
+    </div>
+    {% if page != "hub" %}{{ postcode_chips(area) }}{% endif %}
+  </div>
+</section>
+
+{% if page == "hub" %}
+<section class="band band-blush">
+  <div class="wrap split">
+    <div>
+      <h2>{{ area.name }} rents and demand</h2>
+      <p>{{ area.demand }}</p>
+      <div class="stats mt-1">
+        <div class="stat"><strong>{{ area.rent_avg or "–" }}</strong><span>average private rent a month, {{ area.name }} (ONS)</span></div>
+        <div class="stat"><strong>{{ area.rent_change or "–" }}</strong><span>rents over the last year</span></div>
+        <div class="stat"><strong>{{ s.fees.full_management_cap }}</strong><span>our management cap, whatever the rent</span></div>
+      </div>
+      <p class="small muted mt-1">{{ area.rent_note }}</p>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Areas covered</h3>
+        <p>{{ area.covers }}.</p>
+        <div class="mt-1">{{ postcode_chips(area) }}</div>
+        <h3 class="mt-1">The rules here</h3>
+        <p class="small">{{ area.licensing }}</p>
+        <p class="small mb-0">{{ area.shortlet }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if has_blurbs %}
+<section class="band">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Neighbourhoods</span><h2>Places we know in {{ area.name }}</h2></div>
+    <div class="grid grid-3">
+      {% for n in neighbourhoods %}<div class="card"><h3>{{ n.name }}</h3>{% if n.blurb %}<p>{{ n.blurb }}</p>{% endif %}</div>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endif %}
+
+{% if pc.faqs %}
+<section class="band band-mist">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Questions</span><h2>{{ area.name }} landlords ask</h2></div>
+    <div class="faq">
+      {% for f in pc.faqs %}<details><summary>{{ f.q }}</summary><p>{{ f.a }}</p></details>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="band band-dark">
+  <div class="wrap center">
+    <h2>Start with a free {{ "short-let appraisal" if page == "shortlets" else "rent review" }} in {{ area.name }}</h2>
+    <p class="lede" style="margin-inline:auto">An honest figure, a compliance check for your address, and a recommendation, within one working day. {{ ctx.partner_first | capitalize }} will bring it to you in person if you'd like.</p>
+    <div class="cta-row" style="justify-content:center">
+      {% if page == "shortlets" %}
+      <a class="btn btn-primary btn-lg" href="/serviced-accommodation?area={{ area.slug }}#appraisal">Free short-let appraisal</a>
+      {% else %}
+      <a class="btn btn-primary btn-lg" href="/valuation?area={{ area.slug }}">Free rent review</a>
+      {% endif %}
+      <a class="btn btn-wa btn-lg" href="{{ ctx.whatsapp_link }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">WhatsApp {{ ctx.partner_first }}</a>
+    </div>
+    {% if other_areas %}<p class="small mt-2" style="color:#CFCBD1">Also: {% for o in other_areas %}<a href="/areas/{{ o.slug }}">Hello New Home {{ o.name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </div>
+</section>
+{% endblock %}

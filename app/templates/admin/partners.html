@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Partners | Admin" %}
+{% block head %}{{ f.styles() }}{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">People</span>
+  <h1>Partners</h1>
+  <div class="actions"><a class="btn btn-primary btn-sm" href="/admin/partners/new">Add partner</a></div>
+</div>
+<section class="panel">
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>Name</th><th>Status</th><th>Tier</th><th>Areas</th><th>Email</th><th>WhatsApp</th><th>Login</th><th>Units</th></tr></thead>
+    <tbody>
+    {% for p in partners %}
+    {% set login = p.users|selectattr("role", "equalto", "partner")|list|first %}
+    <tr>
+      <td><a href="/admin/partners/{{ p.id }}"><strong>{{ p.name }}</strong></a>{% if p.first_name %}<br><span class="small muted">{{ p.first_name }}</span>{% endif %}</td>
+      <td><span class="status status-{{ p.status }}">{{ p.status }}</span></td>
+      <td>{{ "Area Partner" if p.tier == "area" else "Introducer" }}</td>
+      <td>{% for a in p.areas %}<a href="/admin/areas/{{ a.id }}">{{ a.name }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">None</span>{% endfor %}</td>
+      <td>{{ p.email or "" }}</td>
+      <td>{{ p.whatsapp_display or p.whatsapp or "" }}</td>
+      <td>{% if login %}{% if login.is_active %}Yes{% else %}<span class="muted">Inactive</span>{% endif %}{% if login.must_change_password %} <span class="small muted">(first login pending)</span>{% endif %}{% else %}<span class="muted">No</span>{% endif %}</td>
+      <td>{{ p.units_managed }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">No partners yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

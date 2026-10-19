@@ -1,0 +1,73 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .graphic-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1.4rem; align-items: start; }
+  @media (max-width: 960px) { .graphic-wrap { grid-template-columns: 1fr; } }
+  .graphic-preview { background: repeating-conic-gradient(#f3f1f3 0 25%, #fff 0 50%) 0 0 / 24px 24px; border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+  .graphic-preview img { width: 100%; height: auto; max-height: 78vh; object-fit: contain; display: block; }
+  .graphic-meta dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .35rem .8rem; font-size: .92rem; }
+  .graphic-meta dt { color: var(--muted); font-weight: 700; }
+  .graphic-meta dd { margin: 0; }
+  #dl-status { min-height: 1.4em; }
+</style>{% endblock %}
+{% block content %}
+<p class="small"><a href="/partners/kit?area={{ area.slug | urlencode }}&amp;tab=graphics">Back to graphics</a></p>
+<div class="page-title">
+  <span class="eyebrow">Graphic · {{ g.format }} · {{ area.name }}</span>
+  <h1>{{ g.headline }}</h1>
+  {% if g.sub %}<p class="lede">{{ g.sub }}</p>{% endif %}
+</div>
+<div class="graphic-wrap">
+  <div class="graphic-preview"><img id="preview" src="{{ svg_url }}" alt="{{ g.headline }}" width="{{ fmt.w }}" height="{{ fmt.h }}"></div>
+  <aside class="panel graphic-meta">
+    <h2>Download</h2>
+    <p><button type="button" class="btn btn-primary" id="dl" data-svg="{{ svg_url }}" data-name="{{ png_name }}" data-w="{{ fmt.w }}" data-h="{{ fmt.h }}">Download PNG</button></p>
+    <p class="help" id="dl-status">PNG at {{ fmt.w * 2 }} × {{ fmt.h * 2 }} pixels, twice the {{ g.format }} size, for crisp posting.</p>
+    <p><a class="btn btn-ghost btn-sm" href="{{ svg_url }}" target="_blank" rel="noopener">Open the SVG</a></p>
+    <dl class="mt-1">
+      <dt>Format</dt><dd>{{ g.format }} ({{ fmt.w }} × {{ fmt.h }})</dd>
+      <dt>Style</dt><dd>{{ g.style }}</dd>
+      {% if g.cta %}<dt>Button</dt><dd>{{ g.cta }}</dd>{% endif %}
+      {% if g.note %}<dt>Use</dt><dd>{{ g.note }}</dd>{% endif %}
+    </dl>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+(function () {
+  var btn = document.getElementById("dl"), status = document.getElementById("dl-status");
+  if (!btn) return;
+  var idle = btn.textContent;
+  function say(msg) { if (status) status.textContent = msg; }
+  function done() { btn.disabled = false; btn.textContent = idle; }
+  btn.addEventListener("click", function () {
+    btn.disabled = true; btn.textContent = "Preparing";
+    fetch(btn.getAttribute("data-svg"), { credentials: "same-origin" }).then(function (r) {
+      if (!r.ok) throw new Error("fetch");
+      return r.text();
+    }).then(function (svg) {
+      var blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function () {
+        var w = parseInt(btn.getAttribute("data-w"), 10), h = parseInt(btn.getAttribute("data-h"), 10);
+        var c = document.createElement("canvas"); c.width = w * 2; c.height = h * 2;
+        var ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (png) {
+          if (!png) { say("The browser could not build the PNG. Open the SVG and save it instead."); done(); return; }
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(png);
+          a.download = btn.getAttribute("data-name") + ".png";
+          document.body.appendChild(a); a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+          say("Saved " + a.download + " at " + c.width + " × " + c.height + " pixels.");
+          done();
+        }, "image/png");
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); say("The browser could not render the graphic. Open the SVG and save it instead."); done(); };
+      img.src = url;
+    }).catch(function () { say("Could not fetch the graphic. Reload the page and try again."); done(); });
+  });
+})();
+</script>{% endblock %}
