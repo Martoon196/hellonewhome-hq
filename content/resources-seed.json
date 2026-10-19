@@ -34,7 +34,7 @@
   {
     "category": "Contracts & paperwork",
     "title": "Local Partner agreement (heads of terms)",
-    "description": "The introducer and area partner agreement: territory, commission, the proving period, what is regulated and reserved to head office, data protection and conduct. Solicitor-reviewed version pending [CONFIRM].",
+    "description": "The introducer and area partner agreement: territory, commission, the proving period, what is regulated and reserved to head office, data protection and conduct. Solicitor-reviewed version pending.",
     "kind": "file",
     "region": "both",
     "placeholder": true
@@ -74,7 +74,7 @@
   {
     "category": "Software & systems",
     "title": "SA pricing: how nightly rates are set",
-    "description": "How head office sets and reviews dynamic pricing for a short-let unit, what the partner reports from changeovers, and how the night counter and the London 90-night block work.",
+    "description": "How head office sets and reviews dynamic pricing for a short-let unit, what the partner reports from changeovers, and how the night-test tracker on the owner statement works.",
     "kind": "page",
     "region": "both",
     "placeholder": true
@@ -138,7 +138,7 @@
   {
     "category": "Training",
     "title": "Short-let rules by nation",
-    "description": "The business-rates night test (70 of 140 in England; 182 of 252 in Wales), council tax premiums, the registers (Wales open now, deadline 31 March 2027; England expected March 2027), planning (C6 and Article 4 in Wales; the 90-night rule in London), and the sentence partners never say: 'you'll be fine'.",
+    "description": "The business-rates night test (70 of 140 in England; 182 of 252 in Wales), council tax premiums, the registers (Wales open now, deadline 31 March 2027; England expected March 2027), and the sentence partners never say: 'you'll be fine'.",
     "kind": "page",
     "region": "both",
     "placeholder": true
@@ -226,7 +226,7 @@
   {
     "category": "Compliance checklists",
     "title": "Short-let (SA) compliance checklist",
-    "description": "Fire risk assessment, gas, electrical, PAT, furniture labels, insurance check, the register, the night test, planning position, council licensing, smart-lock and noise-monitor set-up, and the London night counter.",
+    "description": "Fire risk assessment, gas, electrical, PAT, furniture labels, insurance check, the register, the night test, council licensing, smart-lock and noise-monitor set-up, and the night-test tracker.",
     "kind": "file",
     "region": "both",
     "placeholder": true

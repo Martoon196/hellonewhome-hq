@@ -42,10 +42,11 @@
     ],
     "demand": "Swansea University and the Bay Campus, Morriston and Singleton hospitals, the Arena and the Marina for short stays, and year-round Gower and Mumbles tourism.",
     "licensing": "Additional HMO licensing covers Castle, Uplands, St Thomas and Waterfront wards from 14 February 2026; mandatory licensing applies to larger HMOs citywide. Every landlord must be registered with Rent Smart Wales.",
-    "shortlet": "No Article 4 direction on short lets found for Swansea. The Wales visitor accommodation register opened 1 October 2026; existing providers must register by 31 March 2027. The 182-night business-rates test applies.",
+    "shortlet": "Swansea has short-stay demand around the Arena and the Marina through the year, Gower and Mumbles from Easter to September, and the university and hospitals for stays of a few nights to a few weeks. The Wales visitor accommodation register opened 1 October 2026; existing providers must register by 31 March 2027. The 182-night business-rates test applies.",
     "rent_note": "ONS average private rent for Swansea, May 2026, with the annual change. Your rent review uses current lets street by street.",
     "rent_avg": "£838",
-    "rent_change": "+5.5%"
+    "rent_change": "+5.5%",
+    "revision": 1
   },
   {
     "slug": "durham",
@@ -137,7 +138,7 @@
     "label": "Local Partner",
     "partner": "Ina Gutowska",
     "partner_first": "Ina",
-    "partner_bio": "Ina is the founder of Divitiae Acquisitions, which sources property and matches investors with deals across London and the UK, and she runs our London lettings and short-let management. Her focus is simple: maximise your rental income and look after the property reliably.",
+    "partner_bio": "Ina is the founder of Divitiae Acquisitions, which sources property and matches investors with deals across London and the UK, and she runs our London lettings and short-let management. Her focus is simple: an honest rent figure and a property that is looked after.",
     "phone": "01792 807 051",
     "whatsapp": "447775801284",
     "whatsapp_display": "07775 801284",
@@ -208,7 +209,7 @@
     "rent_note": "ONS average private rent for London, August 2026, with the annual change; inner boroughs average higher, outer boroughs lower. At £2,332 a 12% fee would be £280 a month; ours is £150. The cap matters more in London than anywhere else we work.",
     "rent_avg": "£2,332",
     "rent_change": "+3.5%",
-    "revision": 2,
+    "revision": 3,
     "status": "active",
     "partner_email": "gutowskaewelina@gmail.com",
     "partner_phone": "07775 801284",
@@ -266,6 +267,6 @@
     "rent_note": "ONS average private rent for Somerset, August 2026, with the annual change; Bath and North East Somerset averages £1,885 and North Somerset about £1,209. At £1,016 our 12% fee is about £122 a month with no VAT; in Bath, where rents average £1,885, the £150 cap saves you money from the first month.",
     "rent_avg": "£1,016",
     "rent_change": "+6.2%",
-    "revision": 1
+    "revision": 2
   }
 ]
