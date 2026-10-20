@@ -1,6 +1,10 @@
 services:
   - type: web
-    name: hellonewhome-hq
+    # Renamed 20 October 2026: the original hellonewhome-hq service was created in Render's Oregon region
+    # and a region cannot be changed, so the move to Neon (London) creates this Frankfurt service beside it;
+    # DEPLOY-NEON.md sections 5 to 10 are the cutover and the deletion of the old one.
+    name: hellonewhome-hq-eu
+    region: frankfurt
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
