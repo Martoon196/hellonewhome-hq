@@ -1,0 +1,193 @@
+{% extends "public/base.html" %}
+{% set where = (" in " ~ area.name) if area else "" %}
+{% set wa_text = "Hi, I'd like to talk about letting my commercial property" ~ where ~ "." %}
+{% block head %}
+<style>
+.diff-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+@media (max-width: 760px) { .diff-grid { grid-template-columns: 1fr; } }
+.diff-grid .card h3 { font-size: 1.05rem; }
+.diff-grid .card p { margin: 0; }
+.fee-pending { font-size: 1.25rem; font-weight: 700; margin: 0; }
+</style>
+{% endblock %}
+{% block content %}
+<section class="band-dark page-head">
+  <div class="wrap hero-grid">
+    <div>
+      {% if area %}<p class="breadcrumb" style="color:#CFCBD1"><a href="/areas">Areas</a> · <a href="/areas/{{ area.slug }}">{{ area.name }}</a> · Commercial lettings</p>{% endif %}
+      <span class="eyebrow">Commercial property{% if area %} · {{ area.name }}{% if area.status == "coming" %} · Opening soon{% endif %}{% endif %}</span>
+      <h1>Shops, offices, workshops and units, let on a proper business lease{{ where }}</h1>
+      <p class="lede">A commercial letting is not a home letting with a bigger number on it. The law is different, the paperwork is different and the people are different. We appraise the property, market it, support the heads of terms, reference the business, work with your solicitor on the lease, then collect the rent and manage the building.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary btn-lg" href="#appraisal">Request a commercial appraisal</a>
+        <a class="btn btn-wa btn-lg" href="https://wa.me/{{ contact.whatsapp }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">WhatsApp {{ contact.first }}</a>
+      </div>
+      <ul class="hero-points">
+        <li>Landlord and Tenant Act 1954, not the Renters' Rights Act</li>
+        <li>Lease drafted by your solicitor; heads of terms agreed with us first</li>
+        <li>Rent collected, managed and reviewed from head office</li>
+        <li>{% if fees %}{{ fees.letting_pct }} letting fee {{ fees.letting_basis }}, {{ fees.vat_note }}{% else %}{{ fees_pending }}{% endif %}</li>
+      </ul>
+    </div>
+    <div>
+      <div class="card" style="max-width:420px;margin-inline:auto">
+        <h3 class="mt-1">{{ contact.name }}</h3>
+        <p class="muted">{% if contact.is_hq %}Head office{% else %}{{ area.label }}{% endif %}{% if area %} for commercial property in {{ area.name }}{% else %} for commercial property{% endif %}</p>
+        <p class="mb-0">{{ contact.bio }}</p>
+        <p class="small muted mt-1 mb-0">WhatsApp {{ contact.whatsapp_display }} · Phone {{ contact.phone }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if area %}
+<section class="band">
+  <div class="wrap">
+    <nav class="area-subnav" aria-label="{{ area.name }} pages">
+      <a href="/areas/{{ area.slug }}">Letting agents in {{ area.name }}</a>
+      <a href="/areas/{{ area.slug }}/lettings">Property management</a>
+      <a href="/areas/{{ area.slug }}/short-lets">Short-let management</a>
+      <a href="/areas/{{ area.slug }}/commercial" class="is-active">Commercial lettings</a>
+    </nav>
+    <p>{{ contact.is_hq and "Head office appraises and lets commercial property in " ~ area.name ~ " directly, with " ~ (area.partner_first if not area.is_hq and area.partner and area.partner.status == "active" else "the local team") ~ " on hand for viewings." or contact.first ~ " is cleared to take commercial instructions in " ~ area.name ~ ", with the lease work, rent collection and management run from head office." }}</p>
+    {% if area.postcodes %}<p class="small muted">Postcode districts covered: {{ area.postcodes | join(", ") }}.</p>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="band{% if not area %}{% else %} band-mist{% endif %}">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">What is different</span>
+      <h2>A business lease runs on different rules from a home</h2>
+      <p class="lede">The residential rulebook does not apply, and a different one does. These are the points we build into every commercial appraisal{{ where }}.</p>
+    </div>
+    <div class="diff-grid">
+      <article class="card"><h3>No deposit scheme</h3><p>Tenancy deposit protection is for residential tenancies of homes (assured tenancies in England, occupation contracts in Wales). A commercial rent deposit is held under a rent deposit deed that sets out the amount, where the money sits, when the landlord may draw on it and when it goes back.</p></article>
+      <article class="card"><h3>No Renters' Rights Act</h3><p>The Renters' Rights Act 2025 governs residential tenancies in England, and the Renting Homes (Wales) Act 2016 does the same in Wales. Neither reaches a shop, office or unit let to a business, so there is no periodic tenancy by default, no written statement of terms in that form and no once-a-year rent increase procedure of that kind.</p></article>
+      <article class="card"><h3>No Right to Rent</h3><p>Right to Rent checks apply to adults occupying a home. A business occupier is referenced as a business: accounts, trading history, references, and a guarantor or a rent deposit where the covenant is thin.</p></article>
+      <article class="card"><h3>Security of tenure under the Landlord and Tenant Act 1954</h3><p>By default a business tenant has the right to a new lease when the old one ends. Landlord and tenant can contract out of that right, but only with the statutory warning notice served and the tenant's declaration made before the lease is signed. We put the choice in the heads of terms; your solicitor serves the notice.</p></article>
+      <article class="card"><h3>MEES for non-domestic property</h3><p>A non-domestic property has needed an EPC rating of E or better to be let since 1 April 2023, unless an exemption is registered. The government has proposed raising that minimum to C by 2027 and B by 2030. We check the rating, the expiry and the exemption position at the appraisal and say what works, if any, the rating needs.</p></article>
+      <article class="card"><h3>Business rates and empty-rates relief</h3><p>The occupier pays the rates once let. An empty property is the owner's liability after the relief period (three months for most property, six for industrial), so a vacant unit is appraised with the rates bill and the letting timetable side by side.</p></article>
+      <article class="card"><h3>VAT option to tax</h3><p>Commercial rent is exempt from VAT unless the owner has opted to tax the building, in which case VAT is charged on the rent and on the service charge and other sums the lease treats as rent; a deposit attracts VAT only when it is drawn on. Whether to opt is a decision for you and your accountant; we make sure the lease and the invoices follow it.</p></article>
+      <article class="card"><h3>Code for Leasing Business Premises 2020</h3><p>The RICS professional statement that sets out how heads of terms are negotiated and recorded: in writing, in plain terms, covering rent, term, breaks, repairs, rent review, alienation and the 1954 Act position before solicitors are instructed. Our heads of terms follow it.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="band band-blush">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow">Our service</span>
+      <h2>From appraisal to rent review, with your solicitor on the lease</h2>
+      <ol class="steps" style="grid-template-columns:1fr">
+        <li><h3>Appraisal</h3><p>Use class, floor area, lease position, EPC and MEES, rates, service charge, fit-out, access, parking and planning constraints, gathered on the visit and written up by head office with a rent and a letting timetable.</p></li>
+        <li><h3>Marketing</h3><p>Particulars with plans and photographs, the commercial portals, agency boards where they help, and viewings{{ (" by " ~ contact.first) if not contact.is_hq else "" }}.</p></li>
+        <li><h3>Heads of terms and referencing</h3><p>Heads of terms drafted to the 2020 Code, the business referenced on its accounts and trading record, and the deposit or guarantor agreed before anyone instructs a solicitor.</p></li>
+        <li><h3>The lease</h3><p>Drafted and completed by your solicitor on the agreed heads of terms, with the 1954 Act notice and declaration where the lease is to be contracted out. We are not solicitors and do not draft leases.</p></li>
+        <li><h3>Rent collection, management and rent reviews</h3><p>Quarterly or monthly rent collected and chased, service charge accounts, repairs under the lease, insurance renewals, inspections, and rent reviews and lease renewals when the dates come round.</p></li>
+      </ol>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Fees</h3>
+        {% if fees %}
+        <div class="table-wrap fees mt-1">
+          <table>
+            <thead><tr><th>Service</th><th>Fee</th></tr></thead>
+            <tbody>
+              <tr><td>Letting</td><td>{{ fees.letting_pct }} {{ fees.letting_basis }}, minimum {{ fees.letting_minimum }}</td></tr>
+              <tr><td>Management</td><td>{{ fees.management_pct }} {{ fees.management_basis }}</td></tr>
+              <tr><td>Lease renewal or rent review</td><td>{{ fees.lease_renewal }}</td></tr>
+              <tr><td>Schedule of condition</td><td>{{ fees.schedule_of_condition }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small muted mt-1 mb-0">All fees {{ fees.vat_note }}. Your solicitor's fees for the lease are separate and paid to them.</p>
+        {% else %}
+        <p class="fee-pending">{{ fees_pending }}.</p>
+        <p class="small muted mb-0">Every commercial instruction is priced on the property, the lease and the work it needs. You receive the fee in writing with the appraisal, before you decide anything.</p>
+        {% endif %}
+      </div>
+      <div class="card mt-1">
+        <h3>Prefer to talk?</h3>
+        <p>{{ contact.name }}: WhatsApp {{ contact.whatsapp_display }}, phone {{ contact.phone }}. Head office {{ s.hq_phone }}, Monday to Friday 9am to 5.30pm, or <a href="mailto:{{ s.hq_email }}">{{ s.hq_email }}</a>.</p>
+        <a class="btn btn-wa" href="https://wa.me/{{ contact.whatsapp }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">Message on WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="appraisal">
+  <div class="wrap split" style="align-items:start">
+    <div>
+      <span class="eyebrow">Commercial appraisal</span>
+      <h2>Tell us about the property{{ where }}</h2>
+      <p>Within two working days you receive a written appraisal: a rent and the lease terms the market will bear, the EPC and MEES position, the rates picture, what the property needs before it can be let, and our fee in writing. {{ contact.name if contact.is_hq else contact.first }} will visit if you would like.</p>
+      <p class="muted">No obligation. If the property would let better another way, we say so.</p>
+    </div>
+    <div>
+      <form class="form" data-enquiry data-subject="Commercial appraisal request">
+        <p class="small muted" data-area-note>{% if area %}Your local team: Hello New Home {{ area.name }} ({{ contact.name if not contact.is_hq else "head office" }}).{% else %}Your postcode routes this to your local team automatically.{% endif %}</p>
+        <input type="hidden" name="kind" value="commercial_appraisal" data-label="Kind">
+        <input type="hidden" name="area" id="cm_area" value="{{ area.slug if area else '' }}" data-label="Area">
+        <div class="form-grid">
+          <div class="field"><label for="cm_pc">Property postcode</label><input id="cm_pc" name="postcode" required autocomplete="postal-code" placeholder="e.g. TA1 1AA"></div>
+          <div class="field"><label for="cm_addr">Property address</label><input id="cm_addr" name="address" required autocomplete="street-address"></div>
+          <div class="field"><label for="cm_business">Business or owner name</label><input id="cm_business" name="business_name" autocomplete="organization" placeholder="The company that owns or will occupy it"></div>
+          <div class="field"><label for="cm_use">Property use</label><select id="cm_use" name="property_use" required>
+            <option value="office">Office</option><option value="retail">Retail</option><option value="industrial">Industrial or workshop</option><option value="leisure">Leisure or hospitality</option><option value="mixed">Mixed use</option><option value="other">Other</option>
+          </select></div>
+          <div class="field"><label for="cm_size">Floor area <span class="hint">(square feet, if known)</span></label><input id="cm_size" name="size_sqft" type="number" min="0" step="1" inputmode="numeric"></div>
+          <div class="field"><label for="cm_lease">Lease status</label><select id="cm_lease" name="lease_status" required>
+            <option value="vacant">Vacant</option><option value="let">Let</option><option value="lease_ending">Let, lease ending</option>
+          </select></div>
+          <div class="field full"><label for="cm_rent">Asking rent a year <span class="hint">(£, optional)</span></label><input id="cm_rent" name="asking_rent" inputmode="numeric" placeholder="e.g. 18000"></div>
+          <div class="field"><label for="cm_name">Your name</label><input id="cm_name" name="name" required autocomplete="name"></div>
+          <div class="field"><label for="cm_phone">Phone</label><input id="cm_phone" name="phone" type="tel" required autocomplete="tel"></div>
+          <div class="field full"><label for="cm_email">Email</label><input id="cm_email" name="email" type="email" required autocomplete="email"></div>
+          <div class="field full"><label for="cm_notes">Anything we should know <span class="hint">(optional)</span></label><textarea id="cm_notes" name="notes" placeholder="Current tenant, break dates, works planned, EPC rating if you have it"></textarea></div>
+        </div>
+        <input name="website" hidden tabindex="-1" autocomplete="off">
+        <div class="form-actions">
+          <button class="btn btn-primary btn-lg" type="submit">Request my commercial appraisal</button>
+          <span class="small muted">Reply within two working days</span>
+        </div>
+        <p class="form-note">We use your details to prepare the appraisal and contact you about it. See our <a href="/privacy">privacy policy</a>.</p>
+      </form>
+      <div class="form-done">
+        <h3>Thanks. One more tap to send it.</h3>
+        <p>Send your request on WhatsApp (fastest), or by email. <span data-who></span> Your details are below if you would rather copy them.</p>
+        <div class="cta-row">
+          <a class="btn btn-wa" data-wa href="#" target="_blank" rel="noopener">Send on WhatsApp</a>
+          <a class="btn btn-ghost" data-mail href="#">Send by email</a>
+          <button class="btn btn-ghost" type="button" data-copy>Copy details</button>
+        </div>
+        <pre class="mt-1"></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band-mist">
+  <div class="wrap">
+    <div class="sec-head"><span class="eyebrow">Questions</span><h2>Commercial landlords ask</h2></div>
+    <div class="faq">
+      {% for q, a in faqs %}<details><summary>{{ q }}</summary><p>{{ a }}</p></details>{% endfor %}
+    </div>
+    <p class="small muted mt-2">This page is a summary of the position in England and Wales in October 2026, not legal advice. Scotland and Northern Ireland have their own commercial property law (no Landlord and Tenant Act 1954 security of tenure, separate EPC, rates and VAT practice), so this page does not describe them. Your solicitor advises on the lease; your accountant advises on VAT and rates.</p>
+  </div>
+</section>
+
+<section class="band band-dark">
+  <div class="wrap center">
+    <h2>Start with a commercial appraisal{{ where }}</h2>
+    <p class="lede" style="margin-inline:auto">A rent, the lease terms, the compliance position and our fee in writing, within two working days.</p>
+    <div class="cta-row" style="justify-content:center">
+      <a class="btn btn-primary btn-lg" href="#appraisal">Request a commercial appraisal</a>
+      <a class="btn btn-wa btn-lg" href="https://wa.me/{{ contact.whatsapp }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">WhatsApp {{ contact.first }}</a>
+    </div>
+    {% if other_areas %}<p class="small mt-2" style="color:#CFCBD1">Commercial lettings in {% for o in other_areas %}<a href="/areas/{{ o.slug }}/commercial">{{ o.name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  </div>
+</section>
+{% endblock %}

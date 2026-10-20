@@ -51,6 +51,13 @@ def _fill_partner(partner: Partner, raw: dict) -> Partner:
     return partner
 
 
+def _resource_body(item: dict) -> str:
+    """The HTML body of a seeded page: inline "body", or the file named by "body_file" under content/resources/."""
+    if item.get("body"):
+        return str(item["body"])
+    return content.resource_body(str(item["body_file"])) if item.get("body_file") else ""
+
+
 def _refresh_area(db: Session, area: Area, raw: dict) -> None:
     """A seed row whose "revision" is higher than the one last applied updates the live row in place: the
     area's public facts, its status, its bespoke content, and the partner when the live record is still the
@@ -89,6 +96,8 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
         settings.ensure_defaults(db)
         if config.FEES_CONFIRMED and not settings.get(db, "fees_confirmed"):
             settings.put(db, "fees_confirmed", True)
+        if config.FEES_COMMERCIAL_CONFIRMED and not settings.get(db, "fees_commercial_confirmed"):
+            settings.put(db, "fees_commercial_confirmed", True)
 
         # Areas: new slugs are inserted; existing rows are refreshed only when the seed row carries a higher
         # "revision" than the one recorded in the seed_revisions setting (see _refresh_area).
@@ -127,8 +136,6 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
             )
             db.add(area)
             report["areas"] += 1
-        if applied != (stored_revisions if isinstance(stored_revisions, dict) else {}):
-            settings.put(db, "seed_revisions", applied)
         db.flush()
 
         # Fill bespoke content for areas that have none yet but now have a content file
@@ -147,10 +154,44 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                 db.add(Resource(
                     category=item.get("category", "General"), title=item.get("title", "Untitled"),
                     description=item.get("description", ""), kind=item.get("kind", "link"),
-                    url=item.get("url", ""), is_placeholder=bool(item.get("placeholder", True)), sort=(i + 1) * 10,
-                    visibility="region" if region else "all", region=region,
+                    url=item.get("url", ""), body=_resource_body(item), is_placeholder=bool(item.get("placeholder", True)),
+                    sort=(i + 1) * 10, visibility="region" if region else "all", region=region,
                 ))
                 report["resources"] += 1
+            db.flush()          # the revision loop below looks the rows up by title (the session does not autoflush)
+
+        # Seeded resource pages that carry a "key" and a "revision" (the commercial training page first): inserted on a
+        # live database that already has its library, and refreshed in place whenever the seed's revision is higher
+        # than the one recorded in seed_revisions under "resource:<key>", exactly as area rows are. The row is found
+        # by its title; between bumps, head office's edits to it survive every deploy.
+        for i, item in enumerate(content.resources_seed()):
+            key, rev = item.get("key"), int(item.get("revision") or 0)
+            if not key or not rev:
+                continue
+            tag = f"resource:{key}"
+            if rev <= int(applied.get(tag, 0)):
+                continue
+            region = str(item.get("region") or "").lower()
+            region = region if region in ("england", "wales") else ""
+            res = db.query(Resource).filter(Resource.title == item.get("title", "")).order_by(Resource.id).first()
+            if res is None:
+                res = Resource(title=item.get("title", "Untitled"), sort=(i + 1) * 10)
+                db.add(res)
+                report["resources"] += 1
+            else:
+                report["refreshed"] += 1
+            res.category = item.get("category", "General")
+            res.description = item.get("description", "")
+            res.kind = item.get("kind", "page")
+            res.url = item.get("url", "")
+            res.body = _resource_body(item)
+            res.is_placeholder = bool(item.get("placeholder", False))
+            res.visibility = "region" if region else "all"
+            res.region = region
+            db.add(res)
+            applied[tag] = rev
+        if applied != (stored_revisions if isinstance(stored_revisions, dict) else {}):
+            settings.put(db, "seed_revisions", applied)
 
         # The agency management system is always listed in the resource library (idempotent on its URL).
         ordris_url = str(settings.get(db, "ordris_url") or "").strip()

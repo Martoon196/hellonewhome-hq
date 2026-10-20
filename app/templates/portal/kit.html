@@ -173,6 +173,24 @@
   </div>
   {% else %}<section class="panel"><p class="muted">No scripts yet.</p></section>{% endif %}
 </section>
+
+{% if commercial_checklist %}
+<section class="kit-panel{% if tab == 'commercial' %} is-active{% endif %}" data-panel="commercial">
+  <section class="panel">
+    <h2>Commercial appraisal checklist</h2>
+    <p class="help">What to collect on the visit to a shop, office, workshop or unit so head office can appraise it, draft the heads of terms and brief the landlord's solicitor. Fees are quoted by head office after the appraisal; do not quote a figure on the visit.</p>
+    <ol class="gbp-list">
+      {% for item, detail in commercial_checklist %}<li><strong>{{ item }}.</strong> {{ detail }}</li>{% endfor %}
+    </ol>
+    <div class="kit-item mt-1">
+      <label class="sr" for="commercial-checklist">Commercial appraisal checklist as text</label>
+      <textarea id="commercial-checklist" readonly>{{ commercial_checklist_text }}</textarea>
+      <div class="actions"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#commercial-checklist">Copy</button></div>
+    </div>
+    <p class="help mt-1">The training page <a href="/partners/resources">Commercial lettings: what is different</a> explains the law behind each item.</p>
+  </section>
+</section>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endblock %}

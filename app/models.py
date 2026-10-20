@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -60,6 +60,10 @@ class Partner(Base):
     # read-only on the admin partner page and never edited there.
     franchise_fee_waived: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     franchise_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Cleared by head office to take commercial property instructions (revision 0004). While False, a commercial
+    # lead or instruction in this partner's area is routed to head office and kept out of their portal; see
+    # services.routing. The server default means every row that predates the column reads as not cleared.
+    commercial_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
 
     areas: Mapped[list["Area"]] = relationship(back_populates="partner")
     users: Mapped[list["User"]] = relationship(back_populates="partner")
@@ -301,10 +305,10 @@ class Instruction(Base):
 
     @property
     def partner_first(self) -> str:
-        """The first name the landlord will hear from: the area's partner, or head office."""
-        if self.area is not None:
-            return self.area.partner_first
-        return self.partner.display_first if self.partner else "the head office team"
+        """The first name the landlord will hear from: the partner the instruction routed to, or head office. The
+        instruction's own partner, not the area's: a commercial instruction in an uncleared partner's area is head
+        office's (services.routing), and the sender is told so."""
+        return (self.partner.display_first or "the head office team") if self.partner else "the head office team"
 
 
 class Outbox(Base):

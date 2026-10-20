@@ -26,6 +26,39 @@ HQ_BIO = ("Hello New Home started here. The office on Central Business Park is w
 PENDING_BIO = ("Head office is looking after this area while the local team is appointed: contracts, compliance "
                "and rent collection all run from Swansea, on the same capped fee.")
 
+# Commercial appraisal checklist (plan, Phase 5): what the partner collects on the visit to a commercial property
+# so head office can appraise it, draft the heads of terms and brief the landlord's solicitor. Shown in the portal
+# kit to partners cleared for commercial instructions and to head office; the Resources training page explains why
+# each item matters. Each entry is (what to collect, what to look for or ask).
+COMMERCIAL_APPRAISAL_CHECKLIST: list[tuple[str, str]] = [
+    ("Use class", "The current lawful use (Class E, B2, B8, sui generis) and whether the landlord wants a change of use. "
+                  "Check the planning history for conditions on hours, deliveries or occupiers."),
+    ("Floor area", "Net internal area in square feet and square metres, measured or from the plans, floor by floor, "
+                   "with mezzanines, storage and yard noted separately."),
+    ("Lease status and break dates", "Vacant, let or lease ending: the current lease's term, expiry, break dates and "
+                                      "notice periods, whether it is inside or outside the Landlord and Tenant Act 1954, "
+                                      "and any rent review dates still to run."),
+    ("EPC rating and MEES position", "The non-domestic EPC rating and expiry. Below E the property cannot be let without "
+                                     "an exemption; note any works the landlord is planning towards the proposed C and B "
+                                     "thresholds."),
+    ("Rates assessment", "The rateable value from the VOA list, who pays the rates today, and whether empty-rates relief "
+                         "has been used or is running."),
+    ("Service charge", "What the landlord recovers, the last year's figure, the apportionment and anything in dispute."),
+    ("Fit-out", "What belongs to the landlord and what is the outgoing tenant's, the condition of the shell, and whether "
+                "the landlord will offer a rent-free period or a contribution for the incoming fit-out."),
+    ("Access", "Opening hours, shared entrances, loading, goods lifts, step-free access and any rights of way."),
+    ("Parking", "Allocated spaces, yard space, HGV access and any permits or restrictions."),
+    ("Planning constraints", "Listed status, conservation area, Article 4 directions, signage consents and any enforcement "
+                             "history, with the source noted."),
+    ("Photographs and plans", "Exterior, every floor, the services (heating, electrics, fire alarm), and a copy of the "
+                              "floor plan or title plan."),
+]
+
+
+def commercial_checklist_text() -> str:
+    """The checklist as plain text, for the copy button in the portal kit."""
+    return "\n".join(f"- {item}: {detail}" for item, detail in COMMERCIAL_APPRAISAL_CHECKLIST)
+
 
 def partner_pending(area: Area) -> bool:
     """True while an area has no appointed partner: no partner row, or one still marked pending.

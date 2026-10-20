@@ -20,12 +20,15 @@ def configured() -> bool:
     return bool(config.SMTP_HOST)
 
 
-def notify_recipients(area) -> list[str]:
-    """Who hears about a new lead or instruction: head office (LEAD_NOTIFY_TO), plus the area's partner when
-    the area is a partner's and that partner is active with an address."""
+def notify_recipients(area, *, commercial: bool = False) -> list[str]:
+    """Who hears about a new lead or instruction: head office (LEAD_NOTIFY_TO), plus the partner the enquiry
+    routes to when they are active with an address (services.routing: a commercial enquiry only reaches a
+    partner cleared to take commercial instructions)."""
+    from .routing import notified_partner       # imported here: routing needs the models, mail is imported by them
     to = [config.LEAD_NOTIFY_TO]
-    if area is not None and not area.is_hq and area.partner and area.partner.email and area.partner.status == "active":
-        to.append(area.partner.email)
+    partner = notified_partner(area, commercial=commercial)
+    if partner is not None:
+        to.append(partner.email)
     return to
 
 

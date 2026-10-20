@@ -25,7 +25,7 @@ from ..auth import (audit, check_origin, clear_session, current_user, generate_p
                     normalise_email, require_admin, safe_next, set_session, throttle_hit, touch_login, verify_password)
 from ..db import get_db
 from ..models import Announcement, Area, AuditLog, Instruction, Lead, Outbox, Partner, Resource, User
-from ..services import instructions, ordris_sync, settings
+from ..services import instructions, ordris_listings, ordris_sync, routing, settings
 from ..services.postcodes import normalise as normalise_postcode, region_for
 from ..services.times import fmt_uk
 
@@ -38,10 +38,12 @@ AREA_STATUSES = ("active", "coming", "paused", "hidden")
 PARTNER_TIERS = ("introducer", "area")
 PARTNER_STATUSES = ("pending", "active", "paused", "left")
 LEAD_STATUSES = ("new", "contacted", "booked", "instructed", "lost")
-LEAD_KINDS = ("rent_review", "sa_appraisal", "contact", "alert", "partner_application", "enquiry", "partner_request")
+LEAD_KINDS = ("rent_review", "sa_appraisal", "commercial_appraisal", "contact", "alert", "partner_application", "enquiry",
+              "partner_request")
 LEAD_KIND_LABELS = {
-    "rent_review": "Rent review", "sa_appraisal": "Short-let appraisal", "contact": "Contact", "alert": "Property alert",
-    "partner_application": "Partner application", "enquiry": "Enquiry", "partner_request": "Partner change request",
+    "rent_review": "Rent review", "sa_appraisal": "Short-let appraisal", "commercial_appraisal": "Commercial appraisal",
+    "contact": "Contact", "alert": "Property alert", "partner_application": "Partner application", "enquiry": "Enquiry",
+    "partner_request": "Partner change request",
 }
 RESOURCE_KINDS = ("file", "link", "page")
 RESOURCE_VISIBILITY = ("all", "region", "area")
@@ -570,10 +572,11 @@ def area_delete(area_id: int, db: Session = Depends(get_db), user: User = Depend
 def _partner_vals(p: Partner | None) -> dict:
     if p is None:
         return {"name": "", "first_name": "", "email": "", "phone": "", "whatsapp": "", "whatsapp_display": "", "bio": "",
-                "tier": "area", "status": "pending", "units_managed": 0, "notes": "", "areas": []}
+                "tier": "area", "status": "pending", "units_managed": 0, "notes": "", "areas": [], "commercial_enabled": False}
     return {"name": p.name, "first_name": p.first_name, "email": p.email, "phone": p.phone, "whatsapp": p.whatsapp,
             "whatsapp_display": p.whatsapp_display, "bio": p.bio, "tier": p.tier, "status": p.status,
-            "units_managed": p.units_managed, "notes": p.notes, "areas": [a.id for a in p.areas]}
+            "units_managed": p.units_managed, "notes": p.notes, "areas": [a.id for a in p.areas],
+            "commercial_enabled": bool(p.commercial_enabled)}
 
 
 def _partner_vals_from_form(form: FormData) -> dict:
@@ -581,6 +584,7 @@ def _partner_vals_from_form(form: FormData) -> dict:
                                       "tier", "status", "notes")}
     vals["units_managed"] = _int(_s(form, "units_managed"), 0)
     vals["areas"] = [_int(v, -1) for v in form.getlist("areas") if isinstance(v, str)]
+    vals["commercial_enabled"] = form.get("commercial_enabled") == "1"
     return vals
 
 
@@ -649,10 +653,12 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
         return _partner_form(request, db, vals, partner, error=" ".join(errors), status=400)
 
     action = "partner.update"
+    commercial_before = bool(partner.commercial_enabled) if partner is not None else False
     if partner is None:
         partner = Partner(name=vals["name"][:120])
         db.add(partner)
         action = "partner.create"
+    partner.commercial_enabled = vals["commercial_enabled"]
     partner.name = vals["name"][:120]
     partner.first_name = vals["first_name"][:60]
     partner.email = email
@@ -693,8 +699,12 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
         partner.photo_path = rel
         db.add(partner)
 
+    commercial_note = f"commercial instructions {'on' if partner.commercial_enabled else 'off'}"
+    if action == "partner.update" and commercial_before != bool(partner.commercial_enabled):
+        commercial_note += f" (was {'on' if commercial_before else 'off'})"
     audit(db, user, action, f"partner:{partner.id}",
-          f"{partner.name}; status {partner.status}; tier {partner.tier}; areas {', '.join(a.name for a in selected) or 'none'}")
+          f"{partner.name}; status {partner.status}; tier {partner.tier}; areas {', '.join(a.name for a in selected) or 'none'}; "
+          f"{commercial_note}")
     db.commit()
     return _go(f"/admin/partners/{partner.id}", ok="Partner saved.")
 
@@ -950,10 +960,11 @@ def lead_update(lead_id: int, status: str = Form(""), notes: str = Form(""), are
             lead.area_id = area.id
             if not lead.region:
                 lead.region = area.region
-        new_partner = None if area.is_hq else area.partner_id
-        if new_partner != lead.partner_id:
-            changes.append(f"partner to {area.partner.name if (area.partner and not area.is_hq) else 'head office'}")
-            lead.partner_id = new_partner
+        new_partner = routing.partner_for(area, commercial=routing.is_commercial_lead(lead))
+        new_partner_id = new_partner.id if new_partner else None
+        if new_partner_id != lead.partner_id:
+            changes.append(f"partner to {new_partner.name if new_partner else 'head office'}")
+            lead.partner_id = new_partner_id
     if not changes:
         return _go(back, ok="No changes to save.")
     db.add(lead)
@@ -968,7 +979,8 @@ def lead_update(lead_id: int, status: str = Form(""), notes: str = Form(""), are
 def _instruction_filters(request: Request) -> dict:
     qp = request.query_params
     return {"status": qp.get("status", "").strip(), "area": qp.get("area", "").strip(),
-            "origin": qp.get("origin", "").strip(), "q": qp.get("q", "").strip()[:80]}
+            "origin": qp.get("origin", "").strip(), "service": qp.get("service", "").strip().lower(),
+            "q": qp.get("q", "").strip()[:80]}
 
 
 def _instruction_query(db: Session, f: dict):
@@ -983,6 +995,8 @@ def _instruction_query(db: Session, f: dict):
         q = q.filter(Instruction.area_id == int(f["area"]))
     if f["origin"] in instructions.ORIGINS:
         q = q.filter(Instruction.origin_system == f["origin"])
+    if f["service"] in instructions.SERVICE_LINES:
+        q = q.filter(Instruction.service_line == f["service"])
     if f["q"]:
         like = _like(f["q"])
         clauses = [Instruction.ref.ilike(like, escape="\\"), Instruction.external_ref.ilike(like, escape="\\"),
@@ -998,7 +1012,7 @@ def _instruction_query(db: Session, f: dict):
 
 def _instruction_ctx(db: Session, extra: dict) -> dict:
     ctx = {"db": db, "section": "instructions", "statuses": instructions.STATUSES, "status_labels": instructions.STATUS_LABELS,
-           "origins": instructions.ORIGINS, "origin_labels": instructions.ORIGIN_LABELS,
+           "origins": instructions.ORIGINS, "origin_labels": instructions.ORIGIN_LABELS, "service_lines": instructions.SERVICE_LINES,
            "service_labels": instructions.SERVICE_LINE_LABELS, "furnished_labels": instructions.FURNISHED_LABELS}
     ctx.update(extra)
     return ctx
@@ -1019,6 +1033,8 @@ def instructions_list(request: Request, db: Session = Depends(get_db), user: Use
         "rows": rows, "filters": f, "areas": areas, "total": total, "page": page, "pages": pages, "qs": _qs(f),
         "qs_prev": _qs(f, page=page - 1), "qs_next": _qs(f, page=page + 1), "page_size": PAGE_SIZE,
         "waiting": waiting, "ordris_configured": ordris_sync.configured(),
+        # The status line for the homes-to-rent block on the area pages: when this instance last read Ordris.
+        "listings_status": ordris_listings.status(),
     })
     ctx.update(_flash(request))
     return render_admin(request, "admin/instructions.html", ctx)
@@ -1080,10 +1096,11 @@ def instruction_update(instruction_id: int, status: str = Form(""), notes: str =
         if area.id != inst.area_id:
             changes.append(f"area to {area.name}")
             inst.area_id = area.id
-        new_partner = None if area.is_hq else area.partner_id
-        if new_partner != inst.partner_id:
-            changes.append(f"partner to {area.partner.name if (area.partner and not area.is_hq) else 'head office'}")
-            inst.partner_id = new_partner
+        new_partner = routing.partner_for(area, commercial=routing.is_commercial_instruction(inst))
+        new_partner_id = new_partner.id if new_partner else None
+        if new_partner_id != inst.partner_id:
+            changes.append(f"partner to {new_partner.name if new_partner else 'head office'}")
+            inst.partner_id = new_partner_id
     if not changes:
         return _go(back, ok="No changes to save.")
     inst.updated_at = datetime.utcnow()
@@ -1378,8 +1395,11 @@ SETTING_GROUPS: list[tuple[str, list[str]]] = [
     ("Social", ["facebook_url", "instagram_url"]),
     ("Lead response targets", ["lead_sla_hq_hours", "lead_sla_partner_hours"]),
     ("Fees", ["fees", "fees_confirmed"]),
+    ("Commercial fees", ["fees_commercial", "fees_commercial_confirmed"]),
     ("Systems", ["ordris_url", "ordris_label"]),
 ]
+# Setting groups that are proposals until their confirmed box is ticked: the settings page badges them [CONFIRM].
+CONFIRM_GROUPS = {"Commercial fees": "fees_commercial_confirmed"}
 SETTING_LABELS = {
     "hq_name": "Head office name", "hq_phone": "Phone", "hq_whatsapp": "WhatsApp number (digits starting 44)",
     "hq_whatsapp_display": "WhatsApp as shown on the site", "hq_email": "Email", "hq_address": "Address",
@@ -1396,6 +1416,11 @@ SETTING_LABELS = {
     "fees.rent_guarantee_addon": "Rent guarantee add-on (per month)", "fees.hmo_pct": "HMO management (percentage)",
     "fees.room_let_only": "Room let only", "fees.sa_launch": "Short-let launch", "fees.sa_full_pct": "Short-let full management (percentage)",
     "fees.sa_cohost_pct": "Short-let co-hosting (percentage)",
+    "fees_commercial_confirmed": "Commercial fee sheet confirmed by the founder (until ticked the public pages say fees are quoted after the appraisal)",
+    "fees_commercial.letting_pct": "Commercial letting fee (percentage)", "fees_commercial.letting_basis": "Commercial letting fee basis",
+    "fees_commercial.letting_minimum": "Commercial letting fee minimum", "fees_commercial.management_pct": "Commercial management (percentage)",
+    "fees_commercial.management_basis": "Commercial management basis", "fees_commercial.lease_renewal": "Lease renewal or rent review",
+    "fees_commercial.schedule_of_condition": "Schedule of condition", "fees_commercial.vat_note": "Commercial VAT note",
 }
 
 
@@ -1442,9 +1467,15 @@ def _setting_placeholders(current: dict) -> list[tuple[str, str]]:
 @router.get("/settings", response_class=HTMLResponse)
 def settings_form(request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     current = settings.get_all(db)
-    ctx = {"db": db, "section": "settings", "groups": _setting_fields(current), "placeholders": _setting_placeholders(current)}
+    ctx = {"db": db, "section": "settings", "groups": _setting_fields(current), "placeholders": _setting_placeholders(current),
+           "confirm_badges": _confirm_badges(current)}
     ctx.update(_flash(request))
     return render_admin(request, "admin/settings.html", ctx)
+
+
+def _confirm_badges(current: dict) -> set[str]:
+    """The setting groups still awaiting the founder's confirmation (shown with a [CONFIRM] badge, admin only)."""
+    return {group for group, flag in CONFIRM_GROUPS.items() if not current.get(flag)}
 
 
 @router.post("/settings", response_class=HTMLResponse)
@@ -1479,7 +1510,7 @@ async def settings_save(request: Request, db: Session = Depends(get_db), user: U
             posted[key] = value
     if errors:
         ctx = {"db": db, "section": "settings", "groups": _setting_fields(posted), "placeholders": _setting_placeholders(current),
-               "flash": " ".join(errors), "flash_kind": "err"}
+               "confirm_badges": _confirm_badges(posted), "flash": " ".join(errors), "flash_kind": "err"}
         return render_admin(request, "admin/settings.html", ctx, 400)
     changed = [k for k, v in posted.items() if v != current.get(k)]
     for key in changed:

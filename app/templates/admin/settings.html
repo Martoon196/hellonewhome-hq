@@ -19,7 +19,7 @@
 {% endif %}
 <form method="post" action="/admin/settings" class="form">
   {% for group_title, fields in groups %}
-  <h2{% if loop.first %} class="mt-0" style="border:0;padding-top:0"{% endif %}>{{ group_title }}</h2>
+  <h2{% if loop.first %} class="mt-0" style="border:0;padding-top:0"{% endif %}>{{ group_title }}{% if group_title in confirm_badges %} <span class="status status-pending" title="A proposal: the public pages show these figures only once the confirmed box below is ticked">[CONFIRM]</span>{% endif %}</h2>
   <div class="form-grid">
     {% for fld in fields %}
       {% if fld.type == "textarea" %}{{ f.textarea(fld.name, fld.label, fld.value, rows=3) }}

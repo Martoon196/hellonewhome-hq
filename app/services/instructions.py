@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..models import (INSTRUCTION_ORIGINS, INSTRUCTION_SERVICE_LINES, INSTRUCTION_STATUSES, Area, Instruction, User, now)
-from . import mail
+from . import mail, routing
 
 STATUSES = INSTRUCTION_STATUSES
 ORIGINS = INSTRUCTION_ORIGINS
@@ -94,7 +94,8 @@ def api_record(instruction: Instruction) -> dict:
 
 def scoped(db: Session, user: User, areas: list[Area]):
     """The instructions this user may see: everything for an admin; for a partner, those routed to one of their
-    areas or to them directly."""
+    areas or to them directly. A commercial instruction is head office's unless the partner is cleared to take
+    commercial instructions, so an uncleared partner sees nothing of it even when it sits in their area."""
     q = db.query(Instruction)
     if user.role == "admin":
         return q
@@ -104,7 +105,12 @@ def scoped(db: Session, user: User, areas: list[Area]):
         clauses.append(Instruction.area_id.in_(ids))
     if user.partner_id:
         clauses.append(Instruction.partner_id == user.partner_id)
-    return q.filter(or_(*clauses)) if clauses else q.filter(false())
+    if not clauses:
+        return q.filter(false())
+    q = q.filter(or_(*clauses))
+    if not routing.partner_can_take(user.partner, commercial=True):
+        q = q.filter(Instruction.service_line != routing.COMMERCIAL_SERVICE_LINE)
+    return q
 
 
 def summary_lines(instruction: Instruction) -> list[str]:
@@ -138,6 +144,7 @@ def notify(instruction: Instruction) -> bool:
     use. Returns whether a message went out; nothing is raised."""
     # The reference, postcode and area only: the subject is what mail.send logs when nothing can be sent, and
     # log lines carry references and postcodes, not names (data sharing agreement, section 8).
-    subject = (f"[HNH property] {instruction.ref}, {instruction.postcode} "
+    commercial = routing.is_commercial_instruction(instruction)
+    subject = (f"[HNH property{' commercial' if commercial else ''}] {instruction.ref}, {instruction.postcode} "
                f"({instruction.area.name if instruction.area else 'not covered'})")
-    return mail.send(subject, "\n".join(summary_lines(instruction)), mail.notify_recipients(instruction.area))
+    return mail.send(subject, "\n".join(summary_lines(instruction)), mail.notify_recipients(instruction.area, commercial=commercial))

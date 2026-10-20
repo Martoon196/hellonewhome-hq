@@ -28,7 +28,7 @@ from ..auth import (PARTNER_PAUSED_MESSAGE, audit, check_origin, clear_session, 
                     verify_password)
 from ..db import get_db
 from ..models import Announcement, Area, Instruction, Lead, Partner, Resource, User
-from ..services import content, instructions, kit, ordris_sync, settings
+from ..services import content, instructions, kit, ordris_sync, routing, settings
 from ..services.times import now_uk_stamp
 
 log = logging.getLogger("hnh.portal")
@@ -36,8 +36,9 @@ router = APIRouter(prefix="/partners", dependencies=[Depends(check_origin)])
 
 LEAD_STATUSES = ("new", "contacted", "booked", "instructed", "lost")
 LEAD_KIND_LABELS = {
-    "rent_review": "rent review", "sa_appraisal": "short-let appraisal", "contact": "enquiry", "alert": "property alert",
-    "partner_application": "partner application", "enquiry": "enquiry", "partner_request": "change request",
+    "rent_review": "rent review", "sa_appraisal": "short-let appraisal", "commercial_appraisal": "commercial appraisal",
+    "contact": "enquiry", "alert": "property alert", "partner_application": "partner application", "enquiry": "enquiry",
+    "partner_request": "change request",
 }
 PHOTO_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
 PHOTO_MAX_MB = min(5, config.MAX_UPLOAD_MB)
@@ -120,12 +121,18 @@ def _dom_id(value) -> str:
 
 
 def _scoped_leads(db: Session, user: User, areas: list[Area]):
-    """Leads this user may see. Partner change requests are HQ's, not the partner's, so they are left out."""
+    """Leads this user may see. Partner change requests are HQ's, not the partner's, so they are left out, and so
+    is a commercial appraisal unless the partner is cleared to take commercial instructions (services.routing)."""
     q = db.query(Lead).filter(Lead.kind != "partner_request")
     if user.role == "admin":
         return q
     ids = [a.id for a in areas]
-    return q.filter(Lead.area_id.in_(ids)) if ids else q.filter(false())
+    if not ids:
+        return q.filter(false())
+    q = q.filter(Lead.area_id.in_(ids))
+    if not routing.partner_can_take(user.partner, commercial=True):
+        q = q.filter(Lead.kind != routing.COMMERCIAL_LEAD_KIND)
+    return q
 
 
 def _lead_or_404(db: Session, user: User, lead_id: int) -> Lead:
@@ -545,7 +552,11 @@ def kit_index(request: Request, area: str = "", tab: str = "flyers", pillar: str
     s = settings.get_all(db)
     if ar is None:
         return render_portal(request, "portal/kit.html", {"db": db, "user": user, "section": "kit", "areas": areas, "area": None})
-    tab = tab if tab in dict(KIT_TABS) else "flyers"
+    # The commercial appraisal checklist is a tab for head office and for a partner cleared to take commercial
+    # instructions; everyone else sees the kit exactly as before.
+    commercial = user.role == "admin" or routing.partner_can_take(user.partner, commercial=True)
+    tabs = list(KIT_TABS) + ([("commercial", "Commercial")] if commercial else [])
+    tab = tab if tab in dict(tabs) else "flyers"
 
     flyers = [_render_item(f, ctx, html_ctx) for f in _tpl_list(tpl, "flyers")]
     posts_all = [_render_item(p, ctx, html_ctx) for p in _tpl_list(tpl, "fb_posts")
@@ -568,12 +579,16 @@ def kit_index(request: Request, area: str = "", tab: str = "flyers", pillar: str
     counts = {"flyers": len(flyers), "fb": len(posts), "graphics": len(graphics),
               "gbp": len(gbp_services) + len(gbp_posts) + len(gbp_qna) + (1 if gbp.get("description") else 0),
               "letters": len(letters), "scripts": len(scripts)}
+    if commercial:
+        counts["commercial"] = len(kit.COMMERCIAL_APPRAISAL_CHECKLIST)
     return render_portal(request, "portal/kit.html", {
-        "db": db, "user": user, "section": "kit", "areas": areas, "area": ar, "ctx": ctx, "tab": tab, "tabs": KIT_TABS,
+        "db": db, "user": user, "section": "kit", "areas": areas, "area": ar, "ctx": ctx, "tab": tab, "tabs": tabs,
         "counts": counts, "flyers": flyers, "posts": posts, "pillars": pillars, "pillar": pillar, "region": region,
         "graphics": graphics, "gbp": gbp, "gbp_services": gbp_services, "gbp_posts": gbp_posts, "gbp_qna": gbp_qna,
         "gbp_lists": gbp_lists, "letters": letters, "scripts": scripts, "formats": _GRAPHIC_FORMATS,
         "fees_confirmed": bool(s.get("fees_confirmed")), "empty": not any(counts.values()),
+        "commercial_checklist": kit.COMMERCIAL_APPRAISAL_CHECKLIST if commercial else [],
+        "commercial_checklist_text": kit.commercial_checklist_text() if commercial else "",
     })
 
 

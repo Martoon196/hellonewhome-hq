@@ -16,6 +16,7 @@
   <span class="eyebrow">Let with Hello New Home</span>
   <h1>Instructions</h1>
   <p class="help">Properties sent to be let by Property Predator, Key Properties and the website, routed by postcode. Marking one instructed sends the landlord and property to Ordris.</p>
+  <p class="help" id="listings-status">Homes to rent on the area pages (read from Ordris by this instance): {% if listings_status.last_refreshed %}last refreshed {{ listings_status.last_refreshed | uk("%d %b %Y %H:%M") }}, {{ listings_status.cached }} area set{{ "s" if listings_status.cached != 1 else "" }} cached{% if listings_status.stale %}, {{ listings_status.stale }} kept from an earlier answer{% endif %}{% elif not listings_status.configured %}not refreshed yet; Ordris is not configured, so the area pages show none{% else %}not refreshed yet; the first lettings page view will read them{% endif %}{% if listings_status.last_error %}. Last problem{% if listings_status.last_error_at %} at {{ listings_status.last_error_at | uk("%d %b %Y %H:%M") }}{% endif %}: {{ listings_status.last_error }}{% endif %}.</p>
 </div>
 {% if waiting %}<div class="flash flash-err">{{ waiting }} message{{ "s" if waiting != 1 else "" }} to Ordris still waiting or failed.{% if not ordris_configured %} Ordris is not configured: set ORDRIS_BASE_URL and ORDRIS_PARTNER_TOKEN_HNH.{% endif %}</div>{% endif %}
 
@@ -42,6 +43,13 @@
       <select id="origin" name="origin">
         <option value="">Anywhere</option>
         {% for o in origins %}<option value="{{ o }}"{% if filters.origin == o %} selected{% endif %}>{{ origin_labels[o] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="service">Service</label>
+      <select id="service" name="service">
+        <option value="">Any service</option>
+        {% for sl in service_lines %}<option value="{{ sl }}"{% if filters.service == sl %} selected{% endif %}>{{ service_labels[sl] }}</option>{% endfor %}
       </select>
     </div>
     <div class="field">

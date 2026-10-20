@@ -61,6 +61,8 @@ services:
       # as Ordris's ORDRIS_PARTNER_TOKEN_HNH) are what the app uses to send an instruction to Ordris once a landlord
       # has instructed us. While either is unset the send waits in the outbox; set both and run
       # scripts/outbox_retry.py from the service shell (or press Resend in the admin) to deliver what queued.
+      # The same two let the area lettings pages read Ordris's listings feed (homes to rent, cached an hour in
+      # the process); while either is unset the pages show none and are exactly as they were.
       - key: ORDRIS_BASE_URL
         sync: false
       - key: ORDRIS_PARTNER_TOKEN_HNH
@@ -69,3 +71,5 @@ services:
         value: "1"
       - key: FEES_CONFIRMED
         value: "1"
+      # FEES_COMMERCIAL_CONFIRMED is deliberately absent: the commercial fee sheet is a proposal and stays off the
+      # public pages until the founder confirms it (Admin -> Settings, or add the variable with value "1").

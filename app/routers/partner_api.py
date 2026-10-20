@@ -40,7 +40,7 @@ from ..auth import (ApiError, audit, generate_password, hash_password, normalise
                     throttle_hit)
 from ..db import get_db
 from ..models import ApiClient, Area, Instruction, Lead, Partner, User
-from ..services import content, instructions
+from ..services import content, instructions, routing
 from ..services.postcodes import locate, region_for
 from .admin import (AREA_REGIONS, EMAIL_RE, PARTNER_TIERS, SLUG_RE, _parse_postcodes, _partner_login, _postcode_clashes,
                     _postcode_nesting, _slugify, _whatsapp)
@@ -87,6 +87,7 @@ def partner_record(partner: Partner) -> dict:
         "phone": partner.phone, "whatsapp": partner.whatsapp, "whatsapp_display": partner.whatsapp_display,
         "tier": partner.tier, "status": partner.status,
         "franchise": {"fee_waived": partner.franchise_fee_waived, "reason": partner.franchise_note or ""},
+        "commercial_enabled": bool(partner.commercial_enabled),
         "areas": [_area_record(a) for a in sorted(partner.areas, key=lambda a: (a.sort, a.id))],
         "user_id": login.id if login else None,
         "login": None if login is None else {
@@ -599,7 +600,9 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
                        headers={"Retry-After": str(PROPERTIES_WINDOW)})
     location = prop.pop("location")
     area = location.area
-    partner_id = area.partner_id if area is not None and not area.is_hq else None
+    # The one routing rule: a head-office area has no partner, and a commercial property stays with head office
+    # unless the area's partner is cleared to take it (services.routing).
+    partner_id = routing.partner_id_for(area, commercial=prop["service_line"] == routing.COMMERCIAL_SERVICE_LINE)
     by = f"api:{client.name}"
     instruction = Instruction(
         external_ref=external_ref, origin_system=origin, origin_url=origin_url,
@@ -616,8 +619,8 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
     instruction.ref = Instruction.make_ref(instruction.id)
     db.add(instruction)
     audit(db, None, "partner_api.property.create", f"instruction:{instruction.id}",
-          f"via api client {client.name}: {instruction.ref} from {origin}; {instruction.outward}; "
-          f"area {area.slug if area else 'none'}; consent {consent_version}")
+          f"via api client {client.name}: {instruction.ref} from {origin}; {instruction.outward}; {instruction.service_line}; "
+          f"area {area.slug if area else 'none'}; partner {partner_id or 'head office'}; consent {consent_version}")
     db.commit()
     throttle_hit(cap_key)
     db.refresh(instruction)

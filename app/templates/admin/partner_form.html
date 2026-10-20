@@ -31,6 +31,7 @@
     {{ f.select("tier", "Tier", [("introducer", "Introducer"), ("area", "Area Partner")], vals.tier) }}
     {{ f.select("status", "Status", [("pending", "Pending"), ("active", "Active"), ("paused", "Paused"), ("left", "Left")], vals.status, hint="Only active partners receive lead emails. Paused and left partners cannot log in.") }}
     {{ f.text("units_managed", "Units managed", vals.units_managed, type="number", attrs='min="0" step="1"', hint="Shown on their dashboard as properties managed from their instructions.") }}
+    {{ f.checkbox("commercial_enabled", "Can take commercial instructions", vals.commercial_enabled, hint="Until ticked, a commercial appraisal or a commercial property in this partner's area goes to head office and does not appear in their portal.") }}
     <div class="field">
       <label for="areas">Areas</label>
       <select id="areas" name="areas" multiple>
