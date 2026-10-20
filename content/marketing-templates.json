@@ -431,8 +431,8 @@
     "phone": "{{phone}}",
     "website": "{{area_url}}",
     "service_area": "The towns and districts in {{covers}}, entered as towns or postcode districts, up to Google's limit of 20, all within about two hours' driving of {{partner_first}}'s base.",
-    "hours": "Mon to Fri 9.00 to 17.30; Sat 9.00 to 13.00",
-    "hours_note": "[CONFIRM] Head office hours, not yet signed off by the founder. The hours line above is rendered to partners as-is, so head office confirms it before any area profile goes live and edits it here, not on the profile. Partners never set their own hours on a profile; the phone is answered from head office.",
+    "hours": "Mon to Fri 9.00 to 17.00; closed Sat and Sun",
+    "hours_note": "Head office hours, confirmed by the founder on 20 October 2026. The hours line above is rendered to partners as-is; edit it here, not on the profile. Partners never set their own hours on a profile; the phone is answered from head office.",
     "description": "Hello New Home is a letting agent with a capped management fee, no lock-in, and {{partner_first}} on the ground in {{area}} for viewings, inspections and check-ins. Contracts, deposits, rent collection, the legal paperwork and the compliance calendar are run from our head office in Swansea. Full Management is a percentage of rent with a fixed monthly ceiling and no VAT added, and you can leave with 30 days' notice. Tenant Find is no let, no fee. We also run short lets and can switch a property to a long let when the numbers say so. {{region_law}}, PolicyBee insured. Covering {{covers}}. Consider yourself moved.",
     "description_note": "No URLs, phone numbers or prices, per Google's description policy. Where {{covers}} is longer than 60 characters the portal renders the first four places only, so the rendered description stays under 750. If Google flags 'no let, no fee' as promotional, cut that sentence; the description still stands. Re-measure after rendering: {{covers}} can be long.",
     "services": [
