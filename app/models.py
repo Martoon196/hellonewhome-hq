@@ -1,27 +1,42 @@
 """Database models.
 
 All tables the admin panel, partner portal and public site need are defined
-here. Keep additions backwards-compatible (nullable columns with defaults):
-the app creates tables with `Base.metadata.create_all` and has no migrations.
+here. The schema is versioned with Alembic (`alembic/versions`, applied by
+`app.migrations.run_migrations` at startup): a change to a model needs a
+migration alongside it, and additions should stay backwards-compatible
+(nullable columns, or columns with defaults).
+
+The same models run on SQLite and Postgres, so a few rules hold throughout:
+
+* every `String(n)` is wide enough for anything the routers or the seed can
+  store (SQLite ignores the length; Postgres rejects an over-long value);
+* every `DateTime` is timezone-naive UTC, written through `now()` and shown in
+  UK time by `services.times`, so both engines hold identical values
+  (`timestamp without time zone` on Postgres);
+* `JSON` columns take Python `None` on both engines (SQLAlchemy stores it as the
+  JSON literal `null`, which also satisfies NOT NULL);
+* column names avoid Postgres reserved words, so the copy script and any raw
+  SQL can name them unquoted.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
 
 
 def now() -> datetime:
-    return datetime.utcnow()
+    """The current time as naive UTC: the one form every timestamp column holds, on either engine."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Setting(Base):
     """Key/value site settings (HQ contact details, fee sheet, etc.)."""
     __tablename__ = "settings"
-    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[dict | list | str | int | None] = mapped_column(JSON, nullable=True)
 
 
@@ -32,8 +47,8 @@ class Partner(Base):
     first_name: Mapped[str] = mapped_column(String(60), default="")
     email: Mapped[str] = mapped_column(String(200), default="")
     phone: Mapped[str] = mapped_column(String(40), default="")
-    whatsapp: Mapped[str] = mapped_column(String(20), default="")          # international digits, e.g. 447700900123
-    whatsapp_display: Mapped[str] = mapped_column(String(30), default="")  # e.g. 07700 900123
+    whatsapp: Mapped[str] = mapped_column(String(32), default="")          # international digits, e.g. 447700900123
+    whatsapp_display: Mapped[str] = mapped_column(String(40), default="")  # e.g. 07700 900123
     bio: Mapped[str] = mapped_column(Text, default="")
     photo_path: Mapped[str] = mapped_column(String(300), default="")       # relative to UPLOAD_DIR
     tier: Mapped[str] = mapped_column(String(20), default="introducer")    # introducer | area
@@ -69,13 +84,18 @@ class User(Base):
     partner: Mapped[Partner | None] = relationship(back_populates="users")
 
 
+# Logins are matched on the lower-cased email (auth.login_keys), so two addresses that differ only in case
+# must not both exist. A functional unique index says so on both engines; `ix_users_email` stays for lookups.
+Index("ux_users_email_lower", func.lower(User.email), unique=True)
+
+
 class Area(Base):
     __tablename__ = "areas"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     slug: Mapped[str] = mapped_column(String(60), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
-    region: Mapped[str] = mapped_column(String(10), default="england")      # england | wales
-    role: Mapped[str] = mapped_column(String(10), default="partner")        # hq | partner
+    region: Mapped[str] = mapped_column(String(20), default="england")      # england | wales
+    role: Mapped[str] = mapped_column(String(20), default="partner")        # hq | partner
     status: Mapped[str] = mapped_column(String(20), default="coming")       # active | coming | paused | hidden
     partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id"), nullable=True)
     covers: Mapped[str] = mapped_column(Text, default="")
@@ -84,13 +104,13 @@ class Area(Base):
     demand: Mapped[str] = mapped_column(Text, default="")
     licensing: Mapped[str] = mapped_column(Text, default="")
     shortlet: Mapped[str] = mapped_column(Text, default="")
-    rent_avg: Mapped[str] = mapped_column(String(20), default="")
-    rent_change: Mapped[str] = mapped_column(String(20), default="")
+    rent_avg: Mapped[str] = mapped_column(String(40), default="")
+    rent_change: Mapped[str] = mapped_column(String(40), default="")
     rent_note: Mapped[str] = mapped_column(Text, default="")
     # HQ-run areas carry their own contact; partner areas use the partner's.
     phone: Mapped[str] = mapped_column(String(40), default="")
-    whatsapp: Mapped[str] = mapped_column(String(20), default="")
-    whatsapp_display: Mapped[str] = mapped_column(String(30), default="")
+    whatsapp: Mapped[str] = mapped_column(String(32), default="")
+    whatsapp_display: Mapped[str] = mapped_column(String(40), default="")
     # Bespoke SEO content: {"hub": {...}, "lettings": {...}, "shortlets": {...}, "neighbourhoods": [...], "sources": [...]}
     content: Mapped[dict] = mapped_column(JSON, default=dict)
     sort: Mapped[int] = mapped_column(Integer, default=100)
@@ -155,7 +175,7 @@ class Lead(Base):
     name: Mapped[str] = mapped_column(String(120), default="")
     phone: Mapped[str] = mapped_column(String(40), default="")
     email: Mapped[str] = mapped_column(String(200), default="")
-    postcode: Mapped[str] = mapped_column(String(12), default="")
+    postcode: Mapped[str] = mapped_column(String(16), default="")
     address: Mapped[str] = mapped_column(String(300), default="")
     region: Mapped[str] = mapped_column(String(20), default="")
     area_id: Mapped[int | None] = mapped_column(ForeignKey("areas.id"), nullable=True)
@@ -177,13 +197,13 @@ class Resource(Base):
     category: Mapped[str] = mapped_column(String(80), default="General")
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
-    kind: Mapped[str] = mapped_column(String(10), default="link")      # file | link | page
+    kind: Mapped[str] = mapped_column(String(20), default="link")      # file | link | page
     url: Mapped[str] = mapped_column(String(500), default="")
     file_path: Mapped[str] = mapped_column(String(300), default="")    # relative to UPLOAD_DIR
     body: Mapped[str] = mapped_column(Text, default="")                # for kind == page (simple HTML)
-    visibility: Mapped[str] = mapped_column(String(10), default="all") # all | area | region
+    visibility: Mapped[str] = mapped_column(String(20), default="all") # all | area | region
     area_id: Mapped[int | None] = mapped_column(ForeignKey("areas.id"), nullable=True)
-    region: Mapped[str] = mapped_column(String(10), default="")        # when visibility == region
+    region: Mapped[str] = mapped_column(String(20), default="")        # when visibility == region
     is_placeholder: Mapped[bool] = mapped_column(Boolean, default=False)
     sort: Mapped[int] = mapped_column(Integer, default=100)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
@@ -206,5 +226,5 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     action: Mapped[str] = mapped_column(String(80))
-    target: Mapped[str] = mapped_column(String(200), default="")
+    target: Mapped[str] = mapped_column(String(300), default="")
     detail: Mapped[str] = mapped_column(Text, default="")

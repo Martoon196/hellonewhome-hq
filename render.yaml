@@ -8,17 +8,35 @@ services:
     # the visitor's address and the login and lead throttles are per visitor rather than per proxy.
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
     healthCheckPath: /healthz
+    # The disk stays after the move to Postgres: uploads (partner photos, resource files) live on it, and the
+    # SQLite file under HNH_DATA_DIR is kept as the fallback database and as the untouched copy for a rollback.
     disk:
       name: hnh-data
       mountPath: /var/data
       sizeGB: 1
     envVars:
+      # DATABASE_URL is the Neon connection string in postgresql:// form with ?sslmode=require (see
+      # DEPLOY-NEON.md). It is set by hand in Render -> Environment once the data has been copied across and is
+      # never written into this file. While it is unset or blank the app runs on the SQLite file in
+      # HNH_DATA_DIR; to go back to SQLite, delete the variable or save it empty.
+      - key: DATABASE_URL
+        sync: false
+      # PYTHON_VERSION pins the interpreter Render builds with, so a change in Render's default can never pair
+      # the pinned psycopg wheel with an interpreter it was not built for. It is the version the test suite and
+      # the Postgres verification ran on; move it deliberately, with a green suite on the new version.
+      - key: PYTHON_VERSION
+        value: "3.13.16"
+      # HNH_DATA_DIR holds the SQLite file (hq.db). Once DATABASE_URL is set it is only the fallback path and
+      # nothing else reads it; leave it in place so an unset DATABASE_URL lands back on the same file.
       - key: HNH_DATA_DIR
         value: /var/data/db
       - key: HNH_UPLOAD_DIR
         value: /var/data/uploads
       - key: BASE_URL
         value: https://hellonewhome.co.uk
+      # SECRET_KEY signs the session cookies. It must not change across the move to Postgres (or any other
+      # deploy): a new value logs every partner and admin out at once. generateValue only fills it in when the
+      # service is first created; Render keeps the existing value on every later sync.
       - key: SECRET_KEY
         generateValue: true
       - key: ADMIN_EMAIL

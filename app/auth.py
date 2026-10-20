@@ -40,6 +40,21 @@ def generate_password(length: int = 12) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
 
+# ---- account emails --------------------------------------------------------
+def normalise_email(email: str | None) -> str:
+    """The one form an account email is stored and looked up in: trimmed and lower-cased.
+
+    Every write to User.email and Partner.email, and every lookup by email (both login forms, the partner
+    login creation and the admin user form), goes through here. A login typed with capitals or stray spaces
+    therefore finds the same row, and two addresses differing only by case can never both be created. "=" is
+    case-sensitive on SQLite and on Postgres alike, so the rule sits at the boundary; the two login routes
+    and the two pre-insert checks in the admin router compare on lower(email), the expression behind the
+    unique index ux_users_email_lower, so a row saved with capitals before this rule still logs in and a
+    second login for the same address is refused politely rather than tripping the index.
+    Lead and notification addresses are not accounts and are stored as typed."""
+    return (email or "").strip().lower()
+
+
 # ---- throttles (per process; fine for a single-instance HQ app) -----------
 _attempts: dict[str, list[float]] = {}
 _MAX_ATTEMPTS = 8            # failed logins per address + email
@@ -67,7 +82,7 @@ def throttle_hit(key: str) -> None:
 def login_keys(request: Request, email: str) -> tuple[str, str, str]:
     """(normalised email, per-address+email key, per-address key). The email is normalised exactly as the
     user lookup normalises it, so padding it with whitespace cannot buy a fresh attempt budget."""
-    norm = email.strip().lower()
+    norm = normalise_email(email)
     ip = client_ip(request)
     return norm, f"{ip}:{norm}", f"ip:{ip}"
 

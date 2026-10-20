@@ -9,7 +9,7 @@ One application that runs the public website, the partner portal and the head-of
 | Admin panel | `/admin` (login at `/admin/login`) | Head office |
 | Lead API | `POST /api/lead`, `GET /api/locate?postcode=` | The site's own forms |
 
-Stack: Python 3.11+, FastAPI, SQLAlchemy 2, Jinja2, SQLite locally / Postgres in production (optional). No build step, no Node.
+Stack: Python 3.11+, FastAPI, SQLAlchemy 2, Jinja2, Alembic. SQLite for local development and the tests; Postgres (Neon) in production. No build step, no Node.
 
 ## Run locally
 
@@ -26,13 +26,21 @@ Tests: `.venv/bin/python -m pytest -q`
 ## Deploy to Render (recommended)
 
 1. The repo is `Martoon196/hellonewhome-hq` (this folder is its root).
-2. Render → New → Blueprint → pick the repo. `render.yaml` defines the service (Starter plan, 1 GB persistent disk for the SQLite database and uploads).
-3. Set `ADMIN_PASSWORD` when prompted. Everything else is in the blueprint.
+2. Render → New → Blueprint → pick the repo. `render.yaml` defines the service (Starter plan, 1 GB persistent disk for uploads and the fallback SQLite file).
+3. Set `ADMIN_PASSWORD` and `DATABASE_URL` when prompted (both are `sync: false`, so they are never written into the blueprint). Everything else is in the blueprint.
 4. Render → Settings → Custom domains → add `hellonewhome.co.uk` and `www.hellonewhome.co.uk`. Render shows a CNAME/A record.
 5. IONOS → Domains → DNS for hellonewhome.co.uk → add the records Render gave you. SSL is automatic.
 6. Open `https://hellonewhome.co.uk/admin`, log in, change the password.
 
-Optional: set `DATABASE_URL` to a Render Postgres instance for a managed database (the app switches automatically). Keep the disk for uploads either way.
+## Database
+
+- `DATABASE_URL` unset or blank: the app uses the SQLite file `hq.db` under `HNH_DATA_DIR` (`hq/data/` locally, `/var/data/db` on Render). This is how local development and the tests run; the test suite drops `DATABASE_URL` so it can never reach a real database. To run the suite against a throwaway Postgres database, set `HNH_TEST_DATABASE_URL` instead (the run drops and rebuilds that database's app tables).
+- `DATABASE_URL` set: the app uses that Postgres database. Production runs on Neon; the connection string is the `postgresql://` form with `?sslmode=require` and lives only in Render → Environment. The SQLite file is then only the fallback for a rollback and nothing reads it.
+- The move from the live SQLite file to Neon, the checks afterwards, the rollback and the weekly backup are all in `DEPLOY-NEON.md`.
+- Schema changes go through Alembic: change the model in `app/models.py` and add a migration under `alembic/versions/`. The app applies any pending migrations when it starts (`app.migrations.run_migrations`, called from the seed), so a deploy brings Neon up to date; `alembic upgrade head` does the same by hand. Nothing adds a column to an existing table by itself.
+- Writing a migration: `alembic revision --autogenerate -m "describe the change"` compares the models with a database, so point it at one that `alembic upgrade head` built (delete `data/hq.db` first, or set `DATABASE_URL` to an empty local Postgres). A SQLite file the old release built and the app then adopted by stamping keeps its original column widths, which SQLite ignores, and `alembic check` is told to ignore String length differences there; against Postgres every difference counts. Read the generated script before committing it.
+- Startup refuses two states rather than guessing: a database with only some of the app's tables, and a Postgres database that has the tables but no Alembic revision (one an older release built with `create_all`, which would keep narrower columns if stamped). The message says what to do.
+- Account emails (admin users and partner logins) are stored and looked up trimmed and lower-cased, so an address typed with capitals or spaces finds the same login on SQLite and Postgres alike.
 
 `FEES_CONFIRMED=1` (set in `render.yaml`) marks the fee sheet as confirmed on every boot, which clears the draft strip and hold notice on the partners' marketing kit; remove it to control the flag from Admin → Settings alone.
 

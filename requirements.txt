@@ -1,7 +1,10 @@
 fastapi>=0.115
 uvicorn[standard]>=0.30
 jinja2>=3.1
-sqlalchemy>=2.0
+# SQLAlchemy is pinned to the version the Postgres move was verified on (see DEPLOY-NEON.md).
+sqlalchemy==2.1.5
 python-multipart>=0.0.9
 itsdangerous>=2.1
-psycopg[binary]>=3.1 ; python_version >= "3.9"
+# Postgres driver (psycopg 3) and schema migrations: pinned, as both sit on the startup path.
+psycopg[binary]==3.3.6
+alembic==1.20.0

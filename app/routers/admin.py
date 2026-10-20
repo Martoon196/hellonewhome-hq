@@ -16,13 +16,13 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
 
 from .. import config
 from ..auth import (audit, check_origin, clear_session, current_user, generate_password, hash_password, login_allowed,
-                    require_admin, safe_next, set_session, throttle_hit, touch_login, verify_password)
+                    normalise_email, require_admin, safe_next, set_session, throttle_hit, touch_login, verify_password)
 from ..db import get_db
 from ..models import Announcement, Area, AuditLog, Lead, Partner, Resource, User
 from ..services import settings
@@ -228,7 +228,8 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), n
     norm, keys, allowed = login_allowed(request, email)
     if not allowed:
         return render_admin(request, "admin/login.html", {"db": db, "next": next, "error": "Too many attempts. Try again in 15 minutes."}, 429)
-    user = db.query(User).filter(User.email == norm, User.role == "admin").first()
+    # lower(email): see the partner login route; a pre-normalisation row with capitals still logs in.
+    user = db.query(User).filter(func.lower(User.email) == norm, User.role == "admin").first()
     if not user or not user.is_active or not verify_password(password, user.password_hash):
         for key in keys:
             throttle_hit(key)
@@ -620,7 +621,7 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
     errors: list[str] = []
     if not vals["name"]:
         errors.append("Name is required.")
-    email = vals["email"].lower()[:200]
+    email = normalise_email(vals["email"])[:200]
     vals["email"] = email
     if email and not EMAIL_RE.match(email):
         errors.append("Email address does not look right.")
@@ -730,10 +731,12 @@ def _partner_login(partner: Partner) -> User | None:
 def partner_login_create(partner_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     partner = _get_or_404(db, Partner, partner_id)
     back = f"/admin/partners/{partner.id}"
-    email = (partner.email or "").lower()
+    email = normalise_email(partner.email)
     if not email:
         return _go(back, err="Add the partner's email address and save before creating a login.")
-    existing = db.query(User).filter(User.email == email).first()
+    # Compared on lower(email), the same expression as the unique index ux_users_email_lower, so a login row
+    # from before addresses were normalised is found here and refused rather than tripping the index.
+    existing = db.query(User).filter(func.lower(User.email) == email).first()
     if existing is not None:
         if existing.partner_id == partner.id:
             return _go(back, err="This partner already has a login. Use Reset password instead.")
@@ -1382,10 +1385,10 @@ def users_list(request: Request, db: Session = Depends(get_db), user: User = Dep
 
 @router.post("/users", response_class=HTMLResponse)
 def user_create(request: Request, email: str = Form(""), db: Session = Depends(get_db), user: User = Depends(require_admin)):
-    email = email.strip().lower()[:200]
+    email = normalise_email(email)[:200]
     if not EMAIL_RE.match(email):
         return _go("/admin/users", err="Enter a valid email address.")
-    if db.query(User).filter(User.email == email).first() is not None:
+    if db.query(User).filter(func.lower(User.email) == email).first() is not None:   # see partner_login_create
         return _go("/admin/users", err="A login with that email address already exists.")
     password = generate_password(14)
     new = User(email=email, password_hash=hash_password(password), role="admin", is_active=True, must_change_password=True)
