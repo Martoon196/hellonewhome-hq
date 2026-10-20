@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -14,7 +17,7 @@ from app import config
 from app.main import app
 from app.models import Area, AuditLog, Lead, Partner, Resource, User
 from app.services.postcodes import locate, normalise, region_for
-from tests.conftest import ADMIN_EMAIL, TEMP_DATA_DIR, TEMP_UPLOAD_DIR, login, make_partner, session
+from tests.conftest import ADMIN_EMAIL, TEMP_DATA_DIR, TEMP_UPLOAD_DIR, TEST_DATABASE_URL, login, make_partner, session
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 PDF_BYTES = b"%PDF-1.4\n%test\n" + b"0" * 128
@@ -66,8 +69,24 @@ def area_form(**overrides) -> dict:
 def test_environment_is_isolated():
     assert Path(TEMP_DATA_DIR).is_dir() and config.DATA_DIR == Path(TEMP_DATA_DIR)
     assert Path(TEMP_UPLOAD_DIR).is_dir() and config.UPLOAD_DIR == Path(TEMP_UPLOAD_DIR)
-    assert config.DATABASE_URL.startswith("sqlite:///") and TEMP_DATA_DIR in config.DATABASE_URL
+    if TEST_DATABASE_URL:
+        # the opt-in Postgres run: the suite is on the database it was pointed at, and nothing else
+        assert config.DATABASE_URL == TEST_DATABASE_URL and config.DATABASE_URL.startswith("postgres")
+    else:
+        assert config.DATABASE_URL.startswith("sqlite:///") and TEMP_DATA_DIR in config.DATABASE_URL
     assert config.SMTP_HOST == ""
+
+
+@pytest.mark.parametrize("value", ["", "   "])
+def test_blank_database_url_means_sqlite(value):
+    """Render prompts for every `sync: false` variable on a Blueprint sync, and an empty submission is the easy
+    mistake; a blank DATABASE_URL must fall back to the SQLite file rather than fail at create_engine('')."""
+    env = dict(os.environ, DATABASE_URL=value)
+    out = subprocess.run(
+        [sys.executable, "-c", "from app import config, db; print(config.DATABASE_URL); print(db.engine.url)"],
+        cwd=str(Path(__file__).resolve().parent.parent), env=env, capture_output=True, text=True, check=True,
+    ).stdout.splitlines()
+    assert out[0] == f"sqlite:///{Path(TEMP_DATA_DIR) / 'hq.db'}" and out[1].startswith("sqlite:///")
 
 
 def test_seed_revision_refreshes_an_existing_area_and_its_placeholder_partner(client, monkeypatch):

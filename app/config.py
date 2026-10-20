@@ -12,7 +12,9 @@ UPLOAD_DIR = Path(os.environ.get("HNH_UPLOAD_DIR", ROOT / "uploads"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR / 'hq.db'}")
+# A blank or whitespace-only DATABASE_URL means SQLite, the same as an unset one: Render prompts for every
+# `sync: false` variable on a Blueprint sync, and an empty submission must not stop the service booting.
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip() or f"sqlite:///{DATA_DIR / 'hq.db'}"
 if DATABASE_URL.startswith("postgres://"):            # Render/Heroku style URL
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 

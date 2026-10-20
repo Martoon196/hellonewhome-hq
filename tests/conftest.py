@@ -3,7 +3,8 @@
 The environment is fixed at import time, BEFORE app.main (and therefore app.config, which
 reads the variables once) is imported: a throwaway data directory, a throwaway upload
 directory and a known admin password. DATABASE_URL is dropped so a developer's shell can never
-point the suite at a real database.
+point the suite at a real database; to run the suite on Postgres, set HNH_TEST_DATABASE_URL to a
+throwaway database instead (its app tables are dropped and rebuilt at the start of the run).
 """
 from __future__ import annotations
 
@@ -28,13 +29,18 @@ os.environ["ADMIN_EMAIL"] = ADMIN_EMAIL
 os.environ["SECRET_KEY"] = "test-secret-key-not-for-production"
 os.environ["SECURE_COOKIES"] = "0"      # TestClient speaks plain http://testserver; a Secure cookie would never be sent back
 os.environ["SMTP_HOST"] = ""            # never attempt a lead notification email
-os.environ.pop("DATABASE_URL", None)    # always the SQLite file inside the temp data dir
+# The SQLite file inside the temp data dir, unless the opt-in variable names a throwaway Postgres database.
+TEST_DATABASE_URL = os.environ.get("HNH_TEST_DATABASE_URL", "").strip()
+os.environ.pop("DATABASE_URL", None)
+if TEST_DATABASE_URL:
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
 from app import auth, config  # noqa: E402
 from app.auth import hash_password  # noqa: E402
-from app.db import SessionLocal, engine  # noqa: E402
+from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Area, Partner, User  # noqa: E402
 
@@ -44,6 +50,12 @@ TEMP_UPLOAD_DIR = _UPLOAD_DIR
 
 @pytest.fixture(scope="session", autouse=True)
 def _temp_dirs():
+    if TEST_DATABASE_URL:
+        # A throwaway database named on purpose: start every run from nothing, so the lifespan builds the
+        # schema with Alembic and seeds it exactly as it does for a fresh SQLite file.
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        Base.metadata.drop_all(engine)
     yield
     engine.dispose()
     shutil.rmtree(_DATA_DIR, ignore_errors=True)

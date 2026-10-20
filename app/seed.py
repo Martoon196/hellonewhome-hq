@@ -1,4 +1,4 @@
-"""Idempotent seeding: tables, settings, areas, placeholder partners, resources, admin user."""
+"""Idempotent seeding: schema (through Alembic), settings, areas, placeholder partners, resources, admin user."""
 from __future__ import annotations
 
 import sys
@@ -6,8 +6,9 @@ import sys
 from sqlalchemy.orm import Session
 
 from . import config
-from .auth import generate_password, hash_password
-from .db import Base, SessionLocal, engine
+from .auth import generate_password, hash_password, normalise_email
+from .db import SessionLocal
+from .migrations import run_migrations
 from .models import Area, Partner, Resource, User
 from .services import content, settings
 
@@ -28,7 +29,7 @@ def _fill_partner(partner: Partner, raw: dict) -> Partner:
     name = _real(raw.get("partner"))
     partner.name = name or f"{raw['name']} partner (to be appointed)"
     partner.first_name = _real(raw.get("partner_first"))
-    partner.email = _real(raw.get("partner_email")).lower()
+    partner.email = normalise_email(_real(raw.get("partner_email")))
     partner.phone = _real(raw.get("partner_phone"))
     partner.status = (raw.get("partner_status") or "pending") if name else "pending"
     partner.tier = raw.get("partner_tier") or "area"
@@ -53,21 +54,21 @@ def _refresh_area(db: Session, area: Area, raw: dict) -> None:
         area.content = bespoke
     if raw.get("role") == "partner" and _real(raw.get("partner")):
         partner = area.partner
-        email = _real(raw.get("partner_email")).lower()
+        email = normalise_email(_real(raw.get("partner_email")))
         if partner is None:
             partner = _fill_partner(Partner(), raw)
             db.add(partner)
             db.flush()
             area.partner_id = partner.id
-        elif partner.name.endswith("(to be appointed)") or (email and (partner.email or "").lower() == email):
+        elif partner.name.endswith("(to be appointed)") or (email and normalise_email(partner.email) == email):
             _fill_partner(partner, raw)
             db.add(partner)
     db.add(area)
 
 
 def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
-    """Create tables and seed reference data. Safe to run on every boot."""
-    Base.metadata.create_all(engine)
+    """Bring the schema up to date and seed reference data. Safe to run on every boot."""
+    run_migrations()
     own = db is None
     db = db or SessionLocal()
     report: dict = {"areas": 0, "refreshed": 0, "partners": 0, "resources": 0, "admin_created": False, "admin_password": None}
@@ -153,7 +154,7 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
         # Admin user
         if db.query(User).filter(User.role == "admin").count() == 0:
             password = config.ADMIN_PASSWORD or generate_password(14)
-            db.add(User(email=config.ADMIN_EMAIL.lower(), password_hash=hash_password(password), role="admin",
+            db.add(User(email=normalise_email(config.ADMIN_EMAIL), password_hash=hash_password(password), role="admin",
                         must_change_password=not bool(config.ADMIN_PASSWORD)))
             report["admin_created"] = True
             report["admin_password"] = password

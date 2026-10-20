@@ -19,7 +19,7 @@ from xml.sax.saxutils import escape as xml_escape
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from markupsafe import Markup, escape
-from sqlalchemy import false
+from sqlalchemy import false, func
 from sqlalchemy.orm import Session
 
 from .. import config
@@ -208,7 +208,9 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), n
     norm, keys, allowed = login_allowed(request, email)
     if not allowed:
         return render_portal(request, "portal/login.html", {"db": db, "next": next, "error": "Too many attempts. Try again in 15 minutes."}, 429)
-    user = db.query(User).filter(User.email == norm).first()
+    # lower(email) rather than email: a row saved with capitals before addresses were normalised still logs in,
+    # and the comparison is the expression behind ux_users_email_lower, so the index serves it on both engines.
+    user = db.query(User).filter(func.lower(User.email) == norm).first()
     if not user or not user.is_active or not verify_password(password, user.password_hash):
         for key in keys:
             throttle_hit(key)

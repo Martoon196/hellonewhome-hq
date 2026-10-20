@@ -476,3 +476,116 @@ def test_alert_town_options_come_from_public_areas(client, partner_a, admin_clie
         db.add(Area(slug="hidden-alert-town", name="Hidden Alert Town", region="england", role="partner", status="hidden", sort=930))
         db.commit()
     assert "hidden-alert-town" not in client.get("/to-let").text
+
+
+# ---- low: account emails are one case, whatever was typed --------------------
+def test_email_typed_with_capitals_and_spaces_logs_in_and_is_stored_lower_cased(admin_client):
+    from tests.test_app import flash_of
+    # an admin user created with capitals and padding is stored trimmed and lower-cased
+    r = admin_client.post("/admin/users", data={"email": "  Mixed.Case@Example.TEST  "})
+    assert r.status_code == 200, r.text
+    temp = re.search(r'id="cred_pw" type="text" readonly value="([A-Za-z0-9]{14})"', r.text).group(1)
+    with session() as db:
+        assert db.query(User).filter(User.email == "mixed.case@example.test").count() == 1
+        assert db.query(User).filter(User.email == "Mixed.Case@Example.TEST").count() == 0
+    # and logs in however the address is typed; the credentials page showed the stored form
+    assert 'mixed.case@example.test' in r.text
+    c = TestClient(app, follow_redirects=False)
+    login(c, "/admin/login", " MIXED.case@Example.test ", temp)
+    assert c.get("/partners/password", params={"first": "1"}).status_code == 200
+    # the same address in another case is the same login, so it cannot be created twice
+    r = admin_client.post("/admin/users", data={"email": "MIXED.CASE@EXAMPLE.TEST"})
+    assert r.status_code == 303 and "already exists" in flash_of(r.headers["location"])["err"]
+
+    # a partner saved from the admin form with capitals and padding is stored lower-cased, and so is the
+    # login created from the record; the partner logs in with whatever case they type
+    r = admin_client.post("/admin/partners/new", data={
+        "name": "Kay Kent", "first_name": "Kay", "email": "  Kay.Kent@Example.TEST ", "phone": "", "whatsapp": "",
+        "whatsapp_display": "", "bio": "", "tier": "area", "status": "active", "units_managed": "0", "notes": "",
+    })
+    assert r.status_code == 303, r.text
+    partner_id = int(r.headers["location"].split("/")[3].split("?")[0])
+    with session() as db:
+        assert db.get(Partner, partner_id).email == "kay.kent@example.test"
+    r = admin_client.post(f"/admin/partners/{partner_id}/login")
+    assert r.status_code == 200, r.text
+    temp = re.search(r'id="cred_pw" type="text" readonly value="([A-Za-z0-9]{12})"', r.text).group(1)
+    with session() as db:
+        user = db.query(User).filter(User.email == "kay.kent@example.test").one()
+        assert user.partner_id == partner_id and user.role == "partner"
+    p = TestClient(app, follow_redirects=False)
+    login(p, "/partners/login", "KAY.KENT@example.test   ", temp)
+    r = p.get("/partners")
+    assert r.status_code == 303 and r.headers["location"] == "/partners/password?first=1"
+
+
+def test_partner_logins_differing_only_by_case_are_refused(admin_client):
+    from tests.test_app import flash_of
+    # two partner records whose addresses differ only by case and padding: the second was saved before
+    # addresses were normalised, straight into the table, as a record from the SQLite days might have been
+    with session() as db:
+        first = Partner(name="Lou Lower", first_name="Lou", email="lou.lower@example.test", status="active", tier="area")
+        second = Partner(name="Lou Upper", first_name="Lou", email="  LOU.Lower@Example.TEST ", status="active", tier="area")
+        db.add_all([first, second])
+        db.commit()
+        first_id, second_id = first.id, second.id
+    r = admin_client.post(f"/admin/partners/{first_id}/login")
+    assert r.status_code == 200, r.text
+    # the second create is refused with a flash message, not a 500 from the unique index
+    r = admin_client.post(f"/admin/partners/{second_id}/login")
+    assert r.status_code == 303, r.text
+    assert "already belongs to another login" in flash_of(r.headers["location"])["err"]
+    with session() as db:
+        logins = db.query(User).filter(User.email.ilike("lou.lower@example.test")).all()
+        assert len(logins) == 1 and logins[0].partner_id == first_id and logins[0].email == "lou.lower@example.test"
+    # and the other way round: the mixed-case record creates first, is stored lower-cased, and then blocks the other
+    with session() as db:
+        third = Partner(name="Max Mixed", first_name="Max", email="MAX.Mixed@Example.TEST", status="active", tier="area")
+        fourth = Partner(name="Max Lower", first_name="Max", email="max.mixed@example.test", status="active", tier="area")
+        db.add_all([third, fourth])
+        db.commit()
+        third_id, fourth_id = third.id, fourth.id
+    r = admin_client.post(f"/admin/partners/{third_id}/login")
+    assert r.status_code == 200, r.text
+    assert "max.mixed@example.test" in r.text and "MAX.Mixed" not in r.text
+    r = admin_client.post(f"/admin/partners/{fourth_id}/login")
+    assert r.status_code == 303 and "already belongs to another login" in flash_of(r.headers["location"])["err"]
+    with session() as db:
+        assert db.query(User).filter(User.email.ilike("max.mixed@example.test")).count() == 1
+        assert db.query(User).filter(User.email == "max.mixed@example.test").one().partner_id == third_id
+
+
+def test_login_row_from_before_normalisation_is_refused_not_a_500(admin_client):
+    """A users row saved with capitals before addresses were normalised (as a row copied from the SQLite days
+    could be) still logs in, however the address is typed, and blocks a new login for the same address with a
+    flash message. Both the login routes and the pre-insert checks compare lower(email), the same expression
+    as the unique index, so the request never reaches the index and the old row is never locked out."""
+    from tests.test_app import flash_of
+    with session() as db:
+        db.add(User(email="Legacy.Mixed@Example.test", password_hash=auth.hash_password("legacy-pass-12345"),
+                    role="partner", partner_id=None, is_active=True))
+        partner = Partner(name="Lena Legacy", first_name="Lena", email="legacy.mixed@example.test", status="active", tier="area")
+        db.add(partner)
+        db.commit()
+        partner_id = partner.id
+    # the legacy row logs in with the address as stored, lower-cased, or in any other case
+    for typed in ("Legacy.Mixed@Example.test", "legacy.mixed@example.test", " LEGACY.MIXED@EXAMPLE.TEST "):
+        c = TestClient(app, follow_redirects=False)
+        login(c, "/partners/login", typed, "legacy-pass-12345")
+        assert c.get("/partners").status_code == 200
+    # and the same for an admin row from before the rule
+    with session() as db:
+        db.add(User(email="Legacy.Admin@Example.test", password_hash=auth.hash_password("legacy-admin-pass-1"),
+                    role="admin", is_active=True))
+        db.commit()
+    c = TestClient(app, follow_redirects=False)
+    login(c, "/admin/login", "legacy.admin@example.test", "legacy-admin-pass-1")
+    assert c.get("/admin").status_code == 200
+    r = admin_client.post(f"/admin/partners/{partner_id}/login")
+    assert r.status_code == 303, r.text
+    assert "already belongs to another login" in flash_of(r.headers["location"])["err"]
+    r = admin_client.post("/admin/users", data={"email": " LEGACY.mixed@example.test "})
+    assert r.status_code == 303, r.text
+    assert "already exists" in flash_of(r.headers["location"])["err"]
+    with session() as db:
+        assert db.query(User).filter(User.email.ilike("legacy.mixed@example.test")).count() == 1
