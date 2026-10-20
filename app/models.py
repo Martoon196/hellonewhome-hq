@@ -56,6 +56,10 @@ class Partner(Base):
     units_managed: Mapped[int] = mapped_column(Integer, default=0)         # set by HQ for dashboard KPIs
     notes: Mapped[str] = mapped_column(Text, default="")                   # HQ-only notes
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    # Recorded by Group HQ through the Partner API (revision 0002); NULL until it has said anything. Shown
+    # read-only on the admin partner page and never edited there.
+    franchise_fee_waived: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    franchise_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     areas: Mapped[list["Area"]] = relationship(back_populates="partner")
     users: Mapped[list["User"]] = relationship(back_populates="partner")
@@ -217,6 +221,20 @@ class Announcement(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class ApiClient(Base):
+    """A server-to-server caller of the Partner API (Group HQ is the first). The secret itself is never
+    stored: `token_hash` is its SHA-256, compared in constant time by `auth.require_api_client`. `scopes` is a
+    JSON list such as ["partners:write"]; an inactive row is refused like an unknown one."""
+    __tablename__ = "api_clients"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
+    scopes: Mapped[list] = mapped_column(JSON, default=list)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class AuditLog(Base):

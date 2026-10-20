@@ -6,11 +6,14 @@ import sys
 from sqlalchemy.orm import Session
 
 from . import config
-from .auth import generate_password, hash_password, normalise_email
+from .auth import API_TOKEN_MIN_LENGTH, ensure_api_client, generate_password, hash_password, normalise_email
 from .db import SessionLocal
 from .migrations import run_migrations
 from .models import Area, Partner, Resource, User
 from .services import content, settings
+
+GROUPHQ_CLIENT = "grouphq"
+GROUPHQ_SCOPES = ("partners:write",)
 
 
 AREA_SEED_FIELDS = ("name", "region", "covers", "postcodes", "places", "demand", "licensing", "shortlet",
@@ -71,7 +74,8 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
     run_migrations()
     own = db is None
     db = db or SessionLocal()
-    report: dict = {"areas": 0, "refreshed": 0, "partners": 0, "resources": 0, "admin_created": False, "admin_password": None}
+    report: dict = {"areas": 0, "refreshed": 0, "partners": 0, "resources": 0, "admin_created": False, "admin_password": None,
+                    "api_client": None}
     try:
         settings.ensure_defaults(db)
         if config.FEES_CONFIRMED and not settings.get(db, "fees_confirmed"):
@@ -162,6 +166,20 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                 # Only a generated password is printed; one supplied through ADMIN_PASSWORD never goes to the log.
                 shown = "(from ADMIN_PASSWORD)" if config.ADMIN_PASSWORD else password
                 print(f"[seed] Admin account created: {config.ADMIN_EMAIL}  password: {shown}", file=sys.stderr)
+
+        # Group HQ's Partner API client, bootstrapped from the environment so Render needs no shell step. Only the
+        # SHA-256 of the variable is stored; a value too short to be a real secret is ignored, which leaves the
+        # API closed rather than guarded by a weak one.
+        if config.PARTNER_TOKEN_GROUPHQ:
+            if len(config.PARTNER_TOKEN_GROUPHQ) < API_TOKEN_MIN_LENGTH:
+                if not quiet:
+                    print(f"[seed] HNH_PARTNER_TOKEN_GROUPHQ is shorter than {API_TOKEN_MIN_LENGTH} characters and was "
+                          "ignored; the grouphq API client was not created or changed", file=sys.stderr)
+            else:
+                _, outcome = ensure_api_client(db, GROUPHQ_CLIENT, GROUPHQ_SCOPES, config.PARTNER_TOKEN_GROUPHQ)
+                report["api_client"] = outcome
+                if not quiet and outcome != "unchanged":
+                    print(f"[seed] Partner API client {GROUPHQ_CLIENT} {outcome} from HNH_PARTNER_TOKEN_GROUPHQ", file=sys.stderr)
 
         db.commit()
         return report

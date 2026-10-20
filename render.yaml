@@ -43,6 +43,12 @@ services:
         value: lettings@hellonewhome.co.uk
       - key: ADMIN_PASSWORD
         sync: false
+      # HNH_PARTNER_TOKEN_GROUPHQ is the secret Group HQ presents to the Partner API (/api/partner). Set it by
+      # hand in Render -> Environment to the same value as Group HQ's HNH_PARTNER_TOKEN (48 random characters);
+      # every boot stores only its SHA-256 as the api_clients row "grouphq". Leave it unset until Group HQ is
+      # ready to call: with no client row the API refuses every request. scripts/api_client.py is the alternative.
+      - key: HNH_PARTNER_TOKEN_GROUPHQ
+        sync: false
       - key: SECURE_COOKIES
         value: "1"
       - key: FEES_CONFIRMED

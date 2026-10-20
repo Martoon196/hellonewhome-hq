@@ -85,5 +85,18 @@
   {% endif %}
   {% endif %}
 </section>
+
+{% if partner %}
+<section class="panel login-box">
+  <h2>Franchise</h2>
+  <dl class="kv">
+    <dt>Fee</dt>
+    <dd>{% if partner.franchise_fee_waived is none %}<span class="muted">Not recorded</span>{% elif partner.franchise_fee_waived %}Waived{% else %}Payable{% endif %}</dd>
+    <dt>Note</dt>
+    <dd>{% if partner.franchise_note %}{{ partner.franchise_note }}{% else %}<span class="muted">None</span>{% endif %}</dd>
+  </dl>
+  <p class="help mt-1">Recorded by Group HQ through the Partner API when it seats a partner. Read-only here; it changes only when Group HQ sends an update.</p>
+</section>
+{% endif %}
 </div>
 {% endblock %}

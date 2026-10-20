@@ -59,7 +59,7 @@ from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
 
 from app import models  # noqa: E402,F401  (registers every table on Base.metadata)
 from app.db import Base, is_postgres, make_engine, normalise_url  # noqa: E402
-from app.migrations import run_migrations  # noqa: E402
+from app.migrations import current_revision, run_migrations  # noqa: E402
 
 DEFAULT_BATCH = 500
 IGNORED_SOURCE_TABLES = {"alembic_version", "sqlite_sequence", "sqlite_stat1"}
@@ -268,6 +268,14 @@ def run(args: argparse.Namespace, mask: Masker) -> int:
         else:
             run_migrations(target, quiet=True)
             say("target schema: created with Alembic (upgrade head)")
+    elif current_revision(target) is not None:
+        # Under Alembic already (a database the app built, perhaps at an older revision): bring it to head, exactly
+        # as the app does when it starts, so a second, narrower copy after a deploy finds every column it needs.
+        if args.dry_run:
+            say("target schema: present; pending migrations, if any, would be applied (upgrade head)")
+        else:
+            run_migrations(target, quiet=True)
+            say("target schema: present, at head")
     elif wanted - present:
         say(f"error: the target has some of the app's tables but not {', '.join(sorted(wanted - present))}; "
             "finish or drop that schema first")

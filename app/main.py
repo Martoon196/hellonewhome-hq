@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -109,13 +110,16 @@ class BodySizeLimit:
 app.add_middleware(BodySizeLimit)
 app.mount("/assets", StaticFiles(directory=str(APP_DIR / "static")), name="assets")
 
-from .routers import public, portal, admin  # noqa: E402  (import after templates/PAGES exist)
+from .routers import public, portal, admin, partner_api  # noqa: E402  (import after templates/PAGES exist)
 
 app.include_router(public.router)
 app.include_router(portal.router)
 app.include_router(admin.router)
+app.include_router(partner_api.router)
 # Catch-all for brand pages must be registered after every other route.
 app.add_api_route("/{page}", public.fragment, methods=["GET"], response_class=HTMLResponse, include_in_schema=False)
+
+PARTNER_API_PREFIX = "/api/partner/"
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -124,8 +128,25 @@ async def http_error(request: Request, exc: StarletteHTTPException):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(exc.headers["Location"], status_code=303)
     if request.url.path.startswith("/api/"):
-        return JSONResponse({"ok": False, "error": exc.detail}, status_code=exc.status_code)
+        # A dict detail (auth.ApiError) is the body itself: {"ok": false, "reason": ..., "message": ...}; a plain
+        # detail keeps the older {"ok": false, "error": ...} shape the site's own forms read.
+        body = {"ok": False, **exc.detail} if isinstance(exc.detail, dict) else {"ok": False, "error": exc.detail}
+        return JSONResponse(body, status_code=exc.status_code, headers=exc.headers)
     if exc.status_code == 404:
         from .routers.public import render_public
         return render_public(request, "public/404.html", {"title": "Page not found"}, status_code=404)
     return HTMLResponse(f"<h1>{exc.status_code}</h1><p>{exc.detail}</p>", status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    """The Partner API answers in its own JSON shape even when FastAPI refuses a path or query value (a
+    partner id that is not a number); every other route keeps FastAPI's default 422 body."""
+    if request.url.path.startswith(PARTNER_API_PREFIX):
+        first = next(iter(exc.errors()), {}) or {}
+        where = ".".join(str(p) for p in first.get("loc", ()) if p not in ("path", "query", "body"))
+        message = f"{where}: {first.get('msg', 'invalid value')}." if where else "The request is not valid."
+        return JSONResponse({"ok": False, "reason": "invalid_request", "message": message}, status_code=422,
+                            headers={"Cache-Control": "no-store"})
+    from fastapi.exception_handlers import request_validation_exception_handler
+    return await request_validation_exception_handler(request, exc)

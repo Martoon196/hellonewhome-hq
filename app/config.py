@@ -32,6 +32,10 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")      # empty => generated 
 # FEES_CONFIRMED=1 marks the fee sheet as signed off on every boot (clears the hold notice on the partners' kit)
 # without an admin click; leave it unset to manage the flag from Admin -> Settings alone.
 FEES_CONFIRMED = os.environ.get("FEES_CONFIRMED", "").strip().lower() in ("1", "true", "yes")
+# Partner API bootstrap: when set, every boot makes sure an api_clients row named "grouphq" with the
+# partners:write scope carries the SHA-256 of this value (scripts/api_client.py is the alternative). The
+# value itself is never stored, logged or printed.
+PARTNER_TOKEN_GROUPHQ = os.environ.get("HNH_PARTNER_TOKEN_GROUPHQ", "").strip()
 SESSION_COOKIE = "hnh_session"
 SESSION_MAX_AGE = int(os.environ.get("SESSION_MAX_AGE", 60 * 60 * 24 * 14))   # 14 days
 SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "1" if BASE_URL.startswith("https") else "0") == "1"

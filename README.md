@@ -8,6 +8,7 @@ One application that runs the public website, the partner portal and the head-of
 | Partner portal | `/partners` (login at `/partners/login`) | Local Partners |
 | Admin panel | `/admin` (login at `/admin/login`) | Head office |
 | Lead API | `POST /api/lead`, `GET /api/locate?postcode=` | The site's own forms |
+| Partner API | `/api/partner/partners` (see below) | Group HQ, server to server |
 
 Stack: Python 3.11+, FastAPI, SQLAlchemy 2, Jinja2, Alembic. SQLite for local development and the tests; Postgres (Neon) in production. No build step, no Node.
 
@@ -66,6 +67,25 @@ Dashboard (leads, SLA breaches, announcements, the Ordris link) → Leads (Whats
 - `content/marketing-templates.json`: flyers, Facebook posts, graphics, Google Business Profile copy, letters and scripts with `{{tokens}}`; rendered per partner in the portal. Edit the file and redeploy, or call `services.content.reload()`.
 - `content/resources-seed.json`: the resource library index seeded on first boot.
 
+## Partner API
+
+Group HQ seats mentees as partners without anyone logging in here. Three routes, all server to server, in `app/routers/partner_api.py`:
+
+| Route | Body | Does |
+|---|---|---|
+| `POST /api/partner/partners` | `{email, name, tier: introducer\|area, status: pending\|active\|paused, first_name?, phone?, whatsapp?, whatsapp_display?, create_login?, franchise?: {fee_waived, reason}, area_slug? \| new_area?: {slug?, name, region?, postcodes[], covers?} \| postcodes?[]}` | Creates the partner, or updates the one with that email (name, contact details, tier, status and the franchise note; bio, photo, notes and units managed stay head office's). 201 when created, 200 when updated. |
+| `POST /api/partner/partners/{id}/status` | `{status, reason?}` | Pauses or reactivates; the partner, the login and the area stay on record. A paused partner is locked out of the portal at once. |
+| `GET /api/partner/partners?email=` | | The partner with its areas and login state; `{"ok": true, "found": false, "partner": null}` when there is none. |
+
+Areas: `area_slug` assigns an existing area (a seeded "opening soon" area's placeholder partner becomes the person; an area held by a real partner answers 409 `area_assigned`; a head-office area is refused). `new_area` creates one through the same validation and postcode-clash checks as the admin form; it goes live with the partner when `status` is `active`, otherwise it starts as "opening soon". When the slug already exists it is assigned only if its postcodes are the ones sent (a repeated call); with different postcodes the call is refused with 409 `slug_taken` naming the postcodes head office holds, so a changed territory is never dropped without a word. Bare `postcodes` creates an area named after its districts (`LL11 and LL12`) that always starts as "opening soon" until head office names it. `create_login: true` makes the portal login with a one-time password that is returned once and must be changed on first use; a repeated call never creates a second login or resets the password, which is what makes the same call safe to send again. `franchise` is recorded on the partner (`franchise_fee_waived`, `franchise_note`) and shown read-only on the admin partner page.
+
+Authentication: the caller sends `X-Partner-Client: grouphq` and its secret in `X-Service-Token` (an `Authorization: Bearer` header is accepted as well). The database holds only the SHA-256 of each secret (`api_clients`: name, hash, scopes, active, last used), compared in constant time; an unknown or disabled client is 401, a missing scope (`partners:write` for the writes, `partners:read` or `partners:write` for the lookup) is 403, and any request carrying an `Origin` header is 403 whatever else it carries, so no browser can reach these routes. With no client row the API refuses everything. Errors are `{"ok": false, "reason": "<code>", "message": "<sentence>"}`; the codes are `missing_token`, `missing_client`, `invalid_client`, `client_inactive`, `too_many_attempts` (429: thirty refused credentials from one address within an hour, whatever it sends next), `origin_not_allowed`, `scope_missing`, `invalid_json`, `invalid_request`, `request_too_large`, `no_partner`, `email_in_use`, `area_assigned`, `postcode_clash` and `slug_taken`. Every call is written to the audit log as `partner_api.*` with the client's name; the secret is never logged, stored or echoed.
+
+Creating a client, either way:
+
+- `HNH_PARTNER_TOKEN_GROUPHQ` (Render → Environment, `sync: false` in the blueprint): set it to the same value as Group HQ's `HNH_PARTNER_TOKEN`, at least 32 characters, and every boot makes sure the `grouphq` client with the `partners:write` scope carries its hash. A new value rotates the secret on the next boot. A client disabled with the script stays disabled until it is enabled again, whatever the variable says.
+- `.venv/bin/python scripts/api_client.py create grouphq partners:write` prints a 48-character secret once (also `rotate`, `disable`, `enable`, `list`). On Render, run it from the service shell.
+
 ## Security notes
 
 - Passwords: PBKDF2-SHA256, 200k iterations. Sessions: signed, HttpOnly, SameSite=Lax cookies bound to the current password hash, so a password change or reset ends every other session; `SECURE_COOKIES=1` in production. Login attempts are throttled per address and email (and per address overall); `render.yaml` starts uvicorn with `--proxy-headers` so the address is the visitor's, not the proxy's. A paused or departed partner is locked out everywhere at once, not only at the login form.
@@ -73,3 +93,4 @@ Dashboard (leads, SLA breaches, announcements, the Ordris link) → Leads (Whats
 - CSRF: every state-changing request on `/admin`, `/partners` and `/api/lead` must come from our own origin. `/api/lead` also caps the body at 32 KB, trims every stored field, only accepts the public enquiry kinds and allows 30 leads an hour per address.
 - Uploads: extension allowlist, size cap (`MAX_UPLOAD_MB`), sanitised names, served only through controlled routes; resource files require login and respect visibility.
 - Partners only ever see leads, resources and areas attached to their own partner record.
+- The Partner API (above) is server to server only: hashed per-client secrets compared in constant time, a required client name, scopes, and a flat refusal of any request that carries an `Origin` header.
