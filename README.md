@@ -8,7 +8,7 @@ One application that runs the public website, the partner portal and the head-of
 | Partner portal | `/partners` (login at `/partners/login`) | Local Partners |
 | Admin panel | `/admin` (login at `/admin/login`) | Head office |
 | Lead API | `POST /api/lead`, `GET /api/locate?postcode=` | The site's own forms |
-| Partner API | `/api/partner/partners` (see below) | Group HQ, server to server |
+| Partner API | `/api/partner/partners`, `/api/partner/properties` (see below) | Group HQ, Property Predator, Key Properties; server to server |
 
 Stack: Python 3.11+, FastAPI, SQLAlchemy 2, Jinja2, Alembic. SQLite for local development and the tests; Postgres (Neon) in production. No build step, no Node.
 
@@ -45,7 +45,7 @@ Tests: `.venv/bin/python -m pytest -q`
 
 `FEES_CONFIRMED=1` (set in `render.yaml`) marks the fee sheet as confirmed on every boot, which clears the draft strip and hold notice on the partners' marketing kit; remove it to control the flag from Admin → Settings alone.
 
-Optional email notifications for leads: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `LEAD_NOTIFY_TO`. Without them, leads still land in the admin panel and the partner portal; nothing is lost.
+Optional email notifications for leads and property instructions: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `LEAD_NOTIFY_TO` (`app/services/mail.py` is the one path both use). Without them, leads and instructions still land in the admin panel and the partner portal; nothing is lost.
 
 ## Day-one checklist in the admin panel
 
@@ -85,6 +85,19 @@ Creating a client, either way:
 
 - `HNH_PARTNER_TOKEN_GROUPHQ` (Render → Environment, `sync: false` in the blueprint): set it to the same value as Group HQ's `HNH_PARTNER_TOKEN`, at least 32 characters, and every boot makes sure the `grouphq` client with the `partners:write` scope carries its hash. A new value rotates the secret on the next boot. A client disabled with the script stays disabled until it is enabled again, whatever the variable says.
 - `.venv/bin/python scripts/api_client.py create grouphq partners:write` prints a 48-character secret once (also `rotate`, `disable`, `enable`, `list`). On Render, run it from the service shell.
+
+### Property instructions: "Let this property with Hello New Home"
+
+Property Predator and the Key Properties portal send a landlord's property to be let; the public site will do the same. Two routes, behind the same authentication with the `properties:write` scope (`properties:read` for the lookup); the clients are `propertypredator` and `keyproperties`, each bootstrapped by its own variable (`HNH_PARTNER_TOKEN_PROPERTYPREDATOR`, `HNH_PARTNER_TOKEN_KEYPROPERTIES`) exactly as `grouphq` is, or created with `scripts/api_client.py create propertypredator properties:write`.
+
+| Route | Body | Does |
+|---|---|---|
+| `POST /api/partner/properties` | `{external_ref, origin_system?: pp\|kp\|web, origin_url?, introducer?: {person_key, pp_account_id, kp_user_id}, landlord: {name, email?, phone?}, consent: {given: true, at?, text_version}, property: {address, postcode, bedrooms?, property_type?, furnished?: furnished\|unfurnished\|part, rent_expectation?, available_from?, service_line?: residential\|hmo\|sa\|commercial}, notes?}` | Records the instruction as `HNH-000123`, routes it by postcode to the area and its partner exactly as a lead is (an uncovered postcode is kept for head office to place), emails head office and the area's active partner, and answers 201 with the reference and the status record. The same `external_ref` sent again answers 200 with the existing reference and writes nothing; the same reference from another system is 409 `external_ref_taken`. Each client may create 60 instructions a day (429 `daily_limit`); resends do not count. |
+| `GET /api/partner/properties/{external_ref}` | | `{ok, found, ref, instruction: {ref, external_ref, origin_system, service_line, status, status_history, area, partner_first, covered, ordris: {landlord_client_id, property_id, tenancy_id}, created_at, updated_at}}`. No landlord details and no fee figures: the sender holds its own copy of what it sent. |
+
+Consent is required: `consent.given` must be `true` and `consent.text_version` must name the wording the landlord saw, or the call is 422 `consent_required` and nothing is stored. The transfer is between two data controllers (Hello New Home 2 Ltd and MH196 2026 Ltd), so the version and the time of consent are kept on every instruction. Head office works instructions under Admin → Instructions (filters by status, area and origin; status, notes and area on the detail page; the raw body the sender posted). Partners see the ones routed to their areas under Instructions in the portal: the landlord's contact details, the property and the status, never the raw payload, the introducer's account ids or a fee figure.
+
+Marking an instruction **instructed** (in the admin or the portal) sends the landlord and the property to Ordris: `POST {ORDRIS_BASE_URL}/api/partner/hnh/instructions` with `Authorization: Bearer ORDRIS_PARTNER_TOKEN_HNH` (and `X-Service-Token` with the same value), `X-Partner-Client: hnh` and the body `{external_ref: "HNH-000123", landlord: {name, email, phone}, property: {name, address, postcode, bedrooms, property_type}, tenancy: null}`; the ids Ordris answers with are stored on the instruction and shown to the sender on the lookup. The message is written to the `outbox` table first (`app/services/ordris_sync.py`), so a failed send keeps its error and is retried by `.venv/bin/python scripts/outbox_retry.py` (`--list` to look, `--all` to include rows past eight attempts) or by the Resend button on the admin page; "Send to Ordris" queues an instructed property that has no message yet. While `ORDRIS_BASE_URL` or `ORDRIS_PARTNER_TOKEN_HNH` is unset nothing is attempted and the row waits as pending. The token is never stored, logged or echoed; an outbox row records only the status code and Ordris's short reason.
 
 ## Security notes
 

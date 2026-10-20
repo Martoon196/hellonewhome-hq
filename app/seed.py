@@ -14,6 +14,15 @@ from .services import content, settings
 
 GROUPHQ_CLIENT = "grouphq"
 GROUPHQ_SCOPES = ("partners:write",)
+PROPERTIES_SCOPES = ("properties:write",)
+# The Partner API clients the environment can bootstrap: (client name, scopes, the config attribute holding the
+# secret, the environment variable it came from). Property Predator and Key Properties send property instructions
+# ("Let this property with Hello New Home"); Group HQ seats partners.
+PARTNER_CLIENTS = (
+    (GROUPHQ_CLIENT, GROUPHQ_SCOPES, "PARTNER_TOKEN_GROUPHQ", "HNH_PARTNER_TOKEN_GROUPHQ"),
+    ("propertypredator", PROPERTIES_SCOPES, "PARTNER_TOKEN_PROPERTYPREDATOR", "HNH_PARTNER_TOKEN_PROPERTYPREDATOR"),
+    ("keyproperties", PROPERTIES_SCOPES, "PARTNER_TOKEN_KEYPROPERTIES", "HNH_PARTNER_TOKEN_KEYPROPERTIES"),
+)
 
 
 AREA_SEED_FIELDS = ("name", "region", "covers", "postcodes", "places", "demand", "licensing", "shortlet",
@@ -75,7 +84,7 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
     own = db is None
     db = db or SessionLocal()
     report: dict = {"areas": 0, "refreshed": 0, "partners": 0, "resources": 0, "admin_created": False, "admin_password": None,
-                    "api_client": None}
+                    "api_client": None, "api_clients": {}}
     try:
         settings.ensure_defaults(db)
         if config.FEES_CONFIRMED and not settings.get(db, "fees_confirmed"):
@@ -167,19 +176,24 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                 shown = "(from ADMIN_PASSWORD)" if config.ADMIN_PASSWORD else password
                 print(f"[seed] Admin account created: {config.ADMIN_EMAIL}  password: {shown}", file=sys.stderr)
 
-        # Group HQ's Partner API client, bootstrapped from the environment so Render needs no shell step. Only the
-        # SHA-256 of the variable is stored; a value too short to be a real secret is ignored, which leaves the
-        # API closed rather than guarded by a weak one.
-        if config.PARTNER_TOKEN_GROUPHQ:
-            if len(config.PARTNER_TOKEN_GROUPHQ) < API_TOKEN_MIN_LENGTH:
+        # The Partner API clients, bootstrapped from the environment so Render needs no shell step. Only the
+        # SHA-256 of each variable is stored; a value too short to be a real secret is ignored, which leaves the
+        # API closed rather than guarded by a weak one. report["api_client"] keeps Group HQ's outcome by name.
+        for name, scopes, attribute, variable in PARTNER_CLIENTS:
+            secret = getattr(config, attribute, "")
+            if not secret:
+                continue
+            if len(secret) < API_TOKEN_MIN_LENGTH:
                 if not quiet:
-                    print(f"[seed] HNH_PARTNER_TOKEN_GROUPHQ is shorter than {API_TOKEN_MIN_LENGTH} characters and was "
-                          "ignored; the grouphq API client was not created or changed", file=sys.stderr)
-            else:
-                _, outcome = ensure_api_client(db, GROUPHQ_CLIENT, GROUPHQ_SCOPES, config.PARTNER_TOKEN_GROUPHQ)
+                    print(f"[seed] {variable} is shorter than {API_TOKEN_MIN_LENGTH} characters and was ignored; the "
+                          f"{name} API client was not created or changed", file=sys.stderr)
+                continue
+            _, outcome = ensure_api_client(db, name, scopes, secret)
+            report["api_clients"][name] = outcome
+            if name == GROUPHQ_CLIENT:
                 report["api_client"] = outcome
-                if not quiet and outcome != "unchanged":
-                    print(f"[seed] Partner API client {GROUPHQ_CLIENT} {outcome} from HNH_PARTNER_TOKEN_GROUPHQ", file=sys.stderr)
+            if not quiet and outcome != "unchanged":
+                print(f"[seed] Partner API client {name} {outcome} from {variable}", file=sys.stderr)
 
         db.commit()
         return report

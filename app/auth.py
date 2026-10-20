@@ -206,7 +206,7 @@ def touch_login(db: Session, user: User) -> None:
 # A server-to-server caller (Group HQ first) holds a secret; the database holds only its SHA-256. The
 # caller names itself in X-Partner-Client and sends the secret in X-Service-Token (or as a bearer token),
 # and require_api_client compares the hash of what was sent with the stored one in constant time.
-API_SCOPES = ("partners:read", "partners:write")
+API_SCOPES = ("partners:read", "partners:write", "properties:read", "properties:write")
 API_CLIENT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,59}$")
 API_TOKEN_BYTES = 36                   # secrets.token_urlsafe(36) is 48 characters
 API_TOKEN_MIN_LENGTH = 32              # the shortest secret the bootstrap variable is allowed to carry

@@ -34,8 +34,18 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")      # empty => generated 
 FEES_CONFIRMED = os.environ.get("FEES_CONFIRMED", "").strip().lower() in ("1", "true", "yes")
 # Partner API bootstrap: when set, every boot makes sure an api_clients row named "grouphq" with the
 # partners:write scope carries the SHA-256 of this value (scripts/api_client.py is the alternative). The
-# value itself is never stored, logged or printed.
+# value itself is never stored, logged or printed. HNH_PARTNER_TOKEN_PROPERTYPREDATOR and
+# HNH_PARTNER_TOKEN_KEYPROPERTIES do the same for the two senders of property instructions, each with the
+# properties:write scope (see seed.PARTNER_CLIENTS).
 PARTNER_TOKEN_GROUPHQ = os.environ.get("HNH_PARTNER_TOKEN_GROUPHQ", "").strip()
+PARTNER_TOKEN_PROPERTYPREDATOR = os.environ.get("HNH_PARTNER_TOKEN_PROPERTYPREDATOR", "").strip()
+PARTNER_TOKEN_KEYPROPERTIES = os.environ.get("HNH_PARTNER_TOKEN_KEYPROPERTIES", "").strip()
+# Ordris (the agency management system): where an instruction goes once a landlord has instructed us, and the
+# secret Ordris expects from the client named "hnh". Both unset means the sender is switched off: an
+# instruction marked instructed waits in the outbox until they are set (scripts/outbox_retry.py, or the
+# Resend button). The token is never stored, logged or printed.
+ORDRIS_BASE_URL = os.environ.get("ORDRIS_BASE_URL", "").strip().rstrip("/")
+ORDRIS_PARTNER_TOKEN_HNH = os.environ.get("ORDRIS_PARTNER_TOKEN_HNH", "").strip()
 SESSION_COOKIE = "hnh_session"
 SESSION_MAX_AGE = int(os.environ.get("SESSION_MAX_AGE", 60 * 60 * 24 * 14))   # 14 days
 SECURE_COOKIES = os.environ.get("SECURE_COOKIES", "1" if BASE_URL.startswith("https") else "0") == "1"

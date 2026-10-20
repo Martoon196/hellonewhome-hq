@@ -24,8 +24,8 @@ from .. import config
 from ..auth import (audit, check_origin, clear_session, current_user, generate_password, hash_password, login_allowed,
                     normalise_email, require_admin, safe_next, set_session, throttle_hit, touch_login, verify_password)
 from ..db import get_db
-from ..models import Announcement, Area, AuditLog, Lead, Partner, Resource, User
-from ..services import settings
+from ..models import Announcement, Area, AuditLog, Instruction, Lead, Outbox, Partner, Resource, User
+from ..services import instructions, ordris_sync, settings
 from ..services.postcodes import normalise as normalise_postcode, region_for
 from ..services.times import fmt_uk
 
@@ -960,6 +960,175 @@ def lead_update(lead_id: int, status: str = Form(""), notes: str = Form(""), are
     audit(db, user, "lead.update", f"lead:{lead.id}", "; ".join(changes))
     db.commit()
     return _go(back, ok="Lead updated.")
+
+
+# ============================================================================
+# 3b. Property instructions ("Let this property with Hello New Home")
+# ============================================================================
+def _instruction_filters(request: Request) -> dict:
+    qp = request.query_params
+    return {"status": qp.get("status", "").strip(), "area": qp.get("area", "").strip(),
+            "origin": qp.get("origin", "").strip(), "q": qp.get("q", "").strip()[:80]}
+
+
+def _instruction_query(db: Session, f: dict):
+    q = db.query(Instruction)
+    if f["status"] in instructions.STATUSES:
+        q = q.filter(Instruction.status == f["status"])
+    elif f["status"] == "open":
+        q = q.filter(Instruction.status.in_(instructions.OPEN_STATUSES))
+    if f["area"] == "none":
+        q = q.filter(Instruction.area_id.is_(None))
+    elif f["area"].isdigit():
+        q = q.filter(Instruction.area_id == int(f["area"]))
+    if f["origin"] in instructions.ORIGINS:
+        q = q.filter(Instruction.origin_system == f["origin"])
+    if f["q"]:
+        like = _like(f["q"])
+        clauses = [Instruction.ref.ilike(like, escape="\\"), Instruction.external_ref.ilike(like, escape="\\"),
+                   Instruction.landlord_name.ilike(like, escape="\\"), Instruction.landlord_email.ilike(like, escape="\\"),
+                   Instruction.landlord_phone.ilike(like, escape="\\"), Instruction.address.ilike(like, escape="\\"),
+                   Instruction.postcode.ilike(like, escape="\\")]
+        outward = normalise_postcode(f["q"])
+        if outward:
+            clauses.append(Instruction.outward == outward)
+        q = q.filter(or_(*clauses))
+    return q.order_by(Instruction.created_at.desc(), Instruction.id.desc())
+
+
+def _instruction_ctx(db: Session, extra: dict) -> dict:
+    ctx = {"db": db, "section": "instructions", "statuses": instructions.STATUSES, "status_labels": instructions.STATUS_LABELS,
+           "origins": instructions.ORIGINS, "origin_labels": instructions.ORIGIN_LABELS,
+           "service_labels": instructions.SERVICE_LINE_LABELS, "furnished_labels": instructions.FURNISHED_LABELS}
+    ctx.update(extra)
+    return ctx
+
+
+@router.get("/instructions", response_class=HTMLResponse)
+def instructions_list(request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    f = _instruction_filters(request)
+    page = max(1, _int(request.query_params.get("page", "1"), 1))
+    q = _instruction_query(db, f)
+    total = q.count()
+    pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = min(page, pages)
+    rows = q.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).all()
+    areas = db.query(Area).order_by(Area.sort, Area.id).all()
+    waiting = db.query(Outbox).filter(Outbox.kind == ordris_sync.KIND, Outbox.state.in_(("pending", "failed"))).count()
+    ctx = _instruction_ctx(db, {
+        "rows": rows, "filters": f, "areas": areas, "total": total, "page": page, "pages": pages, "qs": _qs(f),
+        "qs_prev": _qs(f, page=page - 1), "qs_next": _qs(f, page=page + 1), "page_size": PAGE_SIZE,
+        "waiting": waiting, "ordris_configured": ordris_sync.configured(),
+    })
+    ctx.update(_flash(request))
+    return render_admin(request, "admin/instructions.html", ctx)
+
+
+@router.get("/instructions/{instruction_id}", response_class=HTMLResponse)
+def instruction_detail(instruction_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    inst = _get_or_404(db, Instruction, instruction_id)
+    areas = db.query(Area).order_by(Area.sort, Area.id).all()
+    timeline = (db.query(AuditLog, User.email).outerjoin(User, User.id == AuditLog.user_id)
+                .filter(AuditLog.target == f"instruction:{inst.id}").order_by(AuditLog.id.desc()).all())
+    outbox = (db.query(Outbox).filter(Outbox.kind == ordris_sync.KIND, Outbox.target == ordris_sync.target_for(inst))
+              .order_by(Outbox.id.desc()).all())
+    payload = [(k, v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)) for k, v in (inst.payload or {}).items()]
+    ctx = _instruction_ctx(db, {
+        "inst": inst, "areas": areas, "timeline": timeline, "outbox": outbox, "payload": payload,
+        "history": list(reversed(inst.status_history or [])), "ordris_configured": ordris_sync.configured(),
+        "can_send": inst.status in ("instructed", "let") and not inst.sent_to_ordris
+                    and not any(o.state in ("pending", "failed") for o in outbox),
+    })
+    ctx.update(_flash(request))
+    return render_admin(request, "admin/instruction.html", ctx)
+
+
+def _ordris_flash(result: tuple[bool, str] | None) -> tuple[str, str]:
+    """(ok, err) additions for a flash message after a status change that may have sent to Ordris."""
+    if result is None:
+        return "", ""
+    sent, message = result
+    return (f" {message}", "") if sent else ("", f" Not sent to Ordris yet: {message}")
+
+
+@router.post("/instructions/{instruction_id}")
+def instruction_update(instruction_id: int, status: str = Form(""), notes: str = Form(""), area_id: str = Form(""),
+                       db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    inst = _get_or_404(db, Instruction, instruction_id)
+    back = f"/admin/instructions/{inst.id}"
+    changes: list[str] = []
+    previous = inst.status
+    if status:
+        if status not in instructions.STATUSES:
+            return _go(back, err="Unknown status.")
+        if instructions.set_status(inst, status, f"admin:{user.email}"):
+            changes.append(f"status {previous} to {status}")
+    notes = notes.strip()[:20_000]
+    if notes != (inst.notes or ""):
+        changes.append("notes updated")
+        inst.notes = notes
+    area_id = area_id.strip()
+    if area_id == "":
+        if inst.area_id is not None:
+            changes.append(f"area {inst.area.name if inst.area else inst.area_id} removed (not covered)")
+            inst.area_id = None
+            inst.partner_id = None
+    else:
+        area = db.get(Area, _int(area_id, -1))
+        if area is None:
+            return _go(back, err="That area no longer exists.")
+        if area.id != inst.area_id:
+            changes.append(f"area to {area.name}")
+            inst.area_id = area.id
+        new_partner = None if area.is_hq else area.partner_id
+        if new_partner != inst.partner_id:
+            changes.append(f"partner to {area.partner.name if (area.partner and not area.is_hq) else 'head office'}")
+            inst.partner_id = new_partner
+    if not changes:
+        return _go(back, ok="No changes to save.")
+    inst.updated_at = datetime.utcnow()
+    db.add(inst)
+    audit(db, user, "instruction.update", f"instruction:{inst.id}", "; ".join(changes))
+    db.commit()
+    result = ordris_sync.on_status_change(db, inst, previous, inst.status)
+    if result is not None:
+        audit(db, user, "instruction.ordris", f"instruction:{inst.id}", result[1])
+        db.commit()
+    more_ok, more_err = _ordris_flash(result)
+    if more_err:
+        return _go(back, err="Instruction updated." + more_err)
+    return _go(back, ok="Instruction updated." + more_ok)
+
+
+@router.post("/instructions/{instruction_id}/send")
+def instruction_send(instruction_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """"Send to Ordris": queue the instruction and try now. Allowed once the landlord has instructed us."""
+    inst = _get_or_404(db, Instruction, instruction_id)
+    back = f"/admin/instructions/{inst.id}"
+    if inst.status not in ("instructed", "let"):
+        return _go(back, err="Mark the instruction as instructed first; only an instructed property goes to Ordris.")
+    if inst.sent_to_ordris:
+        return _go(back, err="This instruction is already in Ordris.")
+    sent, message = ordris_sync.send_instruction(db, inst)
+    audit(db, user, "instruction.ordris", f"instruction:{inst.id}", message)
+    db.commit()
+    return _go(back, ok=message) if sent else _go(back, err=f"Not sent: {message}")
+
+
+@router.post("/instructions/{instruction_id}/outbox/{outbox_id}/resend")
+def instruction_resend(instruction_id: int, outbox_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """"Resend": deliver one outbox row again, whatever its attempt count."""
+    inst = _get_or_404(db, Instruction, instruction_id)
+    back = f"/admin/instructions/{inst.id}"
+    row = db.get(Outbox, outbox_id)
+    if row is None or row.target != ordris_sync.target_for(inst):
+        raise HTTPException(status_code=404, detail="Outbox row not found")
+    if row.state == "sent":
+        return _go(back, err="That message was already sent.")
+    sent, message = ordris_sync.deliver(db, row)
+    audit(db, user, "instruction.ordris.resend", f"instruction:{inst.id}", f"outbox:{row.id}: {message}")
+    db.commit()
+    return _go(back, ok=message) if sent else _go(back, err=f"Not sent: {message}")
 
 
 # ============================================================================

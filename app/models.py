@@ -20,9 +20,9 @@ The same models run on SQLite and Postgres, so a few rules hold throughout:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -235,6 +235,94 @@ class ApiClient(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+INSTRUCTION_ORIGINS = ("pp", "kp", "web")
+INSTRUCTION_SERVICE_LINES = ("residential", "hmo", "sa", "commercial")
+INSTRUCTION_STATUSES = ("new", "contacted", "appraised", "instructed", "let", "lost")
+OUTBOX_STATES = ("pending", "sent", "failed")
+
+
+class Instruction(Base):
+    """A property a landlord has asked Hello New Home to let (plan, Phase 3 C2): sent server to server by
+    Property Predator or Key Properties, or taken on the public site. It sits beside Lead rather than inside
+    it because it carries a property, a landlord's consent, an introducer and the ids Ordris hands back.
+
+    `ref` (HNH-000123) is the number people quote; it is derived from the id by `make_ref` once the row has
+    been flushed. `external_ref` is the sender's own key (pp:<slug>, kp:<deal_id>) and is what makes a resend
+    idempotent. `status_history` is a JSON list of {at, from, to, by, note}, newest last; it is always
+    replaced, never appended in place, so SQLAlchemy sees the change. Nothing here is a fee figure: the
+    partner portal shows the structured fields and never the raw `payload`."""
+    __tablename__ = "instructions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ref: Mapped[str | None] = mapped_column(String(20), nullable=True, unique=True, index=True)
+    external_ref: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    origin_system: Mapped[str] = mapped_column(String(10), default="web")        # pp | kp | web
+    origin_url: Mapped[str] = mapped_column(String(500), default="")
+    introducer_person_key: Mapped[str] = mapped_column(String(200), default="")  # lower-cased email (shared person key)
+    introducer_pp_account_id: Mapped[str] = mapped_column(String(60), default="")
+    introducer_kp_user_id: Mapped[str] = mapped_column(String(60), default="")
+    landlord_name: Mapped[str] = mapped_column(String(120), default="")
+    landlord_email: Mapped[str] = mapped_column(String(200), default="")
+    landlord_phone: Mapped[str] = mapped_column(String(40), default="")
+    consent_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    consent_text_version: Mapped[str] = mapped_column(String(40), default="")
+    address: Mapped[str] = mapped_column(String(300), default="")
+    postcode: Mapped[str] = mapped_column(String(16), default="")
+    outward: Mapped[str] = mapped_column(String(8), default="")
+    bedrooms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    property_type: Mapped[str] = mapped_column(String(40), default="")
+    furnished: Mapped[str] = mapped_column(String(20), default="")
+    rent_expectation: Mapped[int | None] = mapped_column(Integer, nullable=True)   # pounds a month, the landlord's own figure
+    available_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    service_line: Mapped[str] = mapped_column(String(20), default="residential")  # residential | hmo | sa | commercial
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("areas.id"), nullable=True)
+    partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id"), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="new", index=True)
+    status_history: Mapped[list] = mapped_column(JSON, default=list)
+    ordris_landlord_client_id: Mapped[str] = mapped_column(String(60), default="")
+    ordris_property_id: Mapped[str] = mapped_column(String(60), default="")
+    ordris_tenancy_id: Mapped[str] = mapped_column(String(60), default="")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)                     # the body as sent, for head office only
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+    area: Mapped[Area | None] = relationship()
+    partner: Mapped[Partner | None] = relationship()
+
+    @staticmethod
+    def make_ref(instruction_id: int) -> str:
+        return f"HNH-{instruction_id:06d}"
+
+    @property
+    def sent_to_ordris(self) -> bool:
+        return bool(self.ordris_landlord_client_id or self.ordris_property_id)
+
+    @property
+    def partner_first(self) -> str:
+        """The first name the landlord will hear from: the area's partner, or head office."""
+        if self.area is not None:
+            return self.area.partner_first
+        return self.partner.display_first if self.partner else "the head office team"
+
+
+class Outbox(Base):
+    """A server-to-server message the app owes another system (plan, Phase 3 C3): today the instruction sent
+    to Ordris when a property is marked instructed. `kind` names the message (ordris.instruction), `target`
+    the row it is about (instruction:<id>), `payload` the body as it will be sent. A row is pending until it
+    is sent; a failed attempt records the error and leaves it for the retry command or the Resend button.
+    The secret the message is sent with is never part of the row."""
+    __tablename__ = "outbox"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    target: Mapped[str] = mapped_column(String(200), index=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    state: Mapped[str] = mapped_column(String(10), default="pending", index=True)   # pending | sent | failed
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class AuditLog(Base):

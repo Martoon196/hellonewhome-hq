@@ -49,6 +49,22 @@ services:
       # ready to call: with no client row the API refuses every request. scripts/api_client.py is the alternative.
       - key: HNH_PARTNER_TOKEN_GROUPHQ
         sync: false
+      # HNH_PARTNER_TOKEN_PROPERTYPREDATOR and HNH_PARTNER_TOKEN_KEYPROPERTIES are the secrets Property Predator and
+      # the Key Properties portal present when they send a property to be let (POST /api/partner/properties). Each
+      # boot stores only the SHA-256 as the api_clients row of that name with the properties:write scope. Leave each
+      # unset until that sender is ready to call.
+      - key: HNH_PARTNER_TOKEN_PROPERTYPREDATOR
+        sync: false
+      - key: HNH_PARTNER_TOKEN_KEYPROPERTIES
+        sync: false
+      # ORDRIS_BASE_URL (for example https://ordris.io, no trailing slash) and ORDRIS_PARTNER_TOKEN_HNH (the same value
+      # as Ordris's ORDRIS_PARTNER_TOKEN_HNH) are what the app uses to send an instruction to Ordris once a landlord
+      # has instructed us. While either is unset the send waits in the outbox; set both and run
+      # scripts/outbox_retry.py from the service shell (or press Resend in the admin) to deliver what queued.
+      - key: ORDRIS_BASE_URL
+        sync: false
+      - key: ORDRIS_PARTNER_TOKEN_HNH
+        sync: false
       - key: SECURE_COOKIES
         value: "1"
       - key: FEES_CONFIRMED

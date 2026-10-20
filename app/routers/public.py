@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import smtplib
-from email.message import EmailMessage
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,7 +15,7 @@ from .. import config
 from ..auth import check_origin, client_ip, require_partner, throttle_check, throttle_hit
 from ..db import get_db
 from ..models import Area, Lead, Resource, User
-from ..services import content, kit, settings
+from ..services import content, kit, mail, settings
 from ..services.postcodes import extract_postcode, locate
 
 log = logging.getLogger("hnh.public")
@@ -563,25 +561,12 @@ async def api_lead(request: Request, db: Session = Depends(get_db)):
 
 
 def _notify(lead: Lead, area: Area | None, s: dict) -> None:
-    if not config.SMTP_HOST:
+    if not mail.configured():
         log.info("lead %s (%s) stored; SMTP not configured", lead.id, lead.kind)
         return
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = f"[HNH lead] {KIND_SUBJECTS.get(lead.kind, lead.kind)}: {lead.name} ({lead.postcode or 'no postcode'})"
-        msg["From"] = config.SMTP_FROM
-        to = [config.LEAD_NOTIFY_TO]
-        if area and area.partner and area.partner.email and area.partner.status == "active":
-            to.append(area.partner.email)
-        msg["To"] = ", ".join(to)
-        lines = [f"{k}: {v}" for k, v in (lead.payload or {}).items()]
-        lines.append(f"Area: {area.name if area else 'not covered'} ({lead.region})")
-        lines.append(f"Admin: {config.BASE_URL}/admin/leads/{lead.id}")
-        msg.set_content("\n".join(lines))
-        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as smtp:
-            smtp.starttls()
-            if config.SMTP_USER:
-                smtp.login(config.SMTP_USER, config.SMTP_PASSWORD)
-            smtp.send_message(msg)
-    except Exception as e:  # noqa: BLE001 - never lose a lead over email
-        log.warning("lead %s stored but notification failed: %s", lead.id, e)
+    subject = f"[HNH lead] {KIND_SUBJECTS.get(lead.kind, lead.kind)}: {lead.name} ({lead.postcode or 'no postcode'})"
+    lines = [f"{k}: {v}" for k, v in (lead.payload or {}).items()]
+    lines.append(f"Area: {area.name if area else 'not covered'} ({lead.region})")
+    lines.append(f"Admin: {config.BASE_URL}/admin/leads/{lead.id}")
+    if not mail.send(subject, "\n".join(lines), mail.notify_recipients(area)):
+        log.warning("lead %s stored but the notification was not sent", lead.id)

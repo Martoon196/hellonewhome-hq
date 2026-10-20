@@ -27,8 +27,8 @@ from ..auth import (PARTNER_PAUSED_MESSAGE, audit, check_origin, clear_session, 
                     login_allowed, partner_blocked, require_partner, safe_next, set_session, throttle_hit, touch_login,
                     verify_password)
 from ..db import get_db
-from ..models import Announcement, Area, Lead, Partner, Resource, User
-from ..services import content, kit, settings
+from ..models import Announcement, Area, Instruction, Lead, Partner, Resource, User
+from ..services import content, instructions, kit, ordris_sync, settings
 from ..services.times import now_uk_stamp
 
 log = logging.getLogger("hnh.portal")
@@ -367,6 +367,100 @@ def lead_update(lead_id: int, request: Request, status: str = Form(""), note: st
     audit(db, user, "lead_update", f"lead:{lead.id}", "; ".join(changes))
     db.commit()
     return _redirect(f"/partners/leads/{lead.id}", ok="Saved.")
+
+
+# ---- property instructions -------------------------------------------------
+# What a partner sees of an instruction is the money-free view: the landlord's contact details, the property,
+# where it stands and the notes. The raw payload the sender posted, the introducer's account ids and any fee
+# figure stay with head office.
+def _instruction_or_404(db: Session, user: User, instruction_id: int) -> Instruction:
+    inst = instructions.scoped(db, user, partner_areas(db, user)).filter(Instruction.id == instruction_id).first()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instruction not found")
+    return inst
+
+
+def _instruction_ctx(db: Session, user: User, extra: dict) -> dict:
+    ctx = {"db": db, "user": user, "section": "instructions", "statuses": instructions.STATUSES,
+           "status_labels": instructions.STATUS_LABELS, "origin_labels": instructions.ORIGIN_LABELS,
+           "service_labels": instructions.SERVICE_LINE_LABELS, "furnished_labels": instructions.FURNISHED_LABELS}
+    ctx.update(extra)
+    return ctx
+
+
+@router.get("/instructions", response_class=HTMLResponse)
+def instructions_list(request: Request, status: str = "", page: int = 1, ok: str = "", err: str = "",
+                      db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    areas = partner_areas(db, user)
+    q = instructions.scoped(db, user, areas)
+    status = status if status in instructions.STATUSES else ""
+    if status:
+        q = q.filter(Instruction.status == status)
+    per_page = 50
+    total = q.count()
+    pages = max(1, math.ceil(total / per_page))
+    page = min(max(1, page), pages)
+    rows = q.order_by(Instruction.created_at.desc(), Instruction.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+    def page_url(n: int) -> str:
+        params = {"status": status} if status else {}
+        params["page"] = n
+        return "/partners/instructions?" + urlencode(params)
+
+    return render_portal(request, "portal/instructions.html", _instruction_ctx(db, user, {
+        "rows": rows, "total": total, "page": page, "pages": pages, "status": status, "page_url": page_url, **_flash(ok, err),
+    }))
+
+
+@router.get("/instructions/{instruction_id}", response_class=HTMLResponse)
+def instruction_detail(instruction_id: int, request: Request, ok: str = "", err: str = "",
+                       db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    inst = _instruction_or_404(db, user, instruction_id)
+    partner_first = user.partner.display_first if user.partner else "the team"
+    first = (inst.landlord_name or "").split()[0] if inst.landlord_name else ""
+    wa = wa_digits(inst.landlord_phone)
+    wa_text = (f"Hi{' ' + first if first else ''}, it's {partner_first} from Hello New Home about letting your property at "
+               f"{inst.address.split(',')[0].strip()}.")
+    notes = [ln for ln in (inst.notes or "").splitlines() if ln.strip()]
+    return render_portal(request, "portal/instruction.html", _instruction_ctx(db, user, {
+        "inst": inst, "notes": notes, "history": list(reversed(inst.status_history or [])),
+        "wa": wa, "wa_display": wa_display(wa), "wa_href": f"https://wa.me/{wa}?text={quote(wa_text)}" if wa else "",
+        "tel_href": _tel_href(inst.landlord_phone), **_flash(ok, err),
+    }))
+
+
+@router.post("/instructions/{instruction_id}")
+def instruction_update(instruction_id: int, request: Request, status: str = Form(""), note: str = Form(""),
+                       db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    inst = _instruction_or_404(db, user, instruction_id)
+    back = f"/partners/instructions/{inst.id}"
+    changes: list[str] = []
+    previous = inst.status
+    status = status.strip().lower()
+    if status and status not in instructions.STATUSES:
+        return _redirect(back, err="That status is not recognised.")
+    who = user.partner.display_first if user.partner else user.email
+    if status and instructions.set_status(inst, status, f"partner:{who}"):
+        changes.append(f"status {previous} to {status}")
+    note = note.strip()
+    if note:
+        line = f"[{now_uk_stamp()} {who}] {' '.join(note.split())[:1000]}"
+        inst.notes = f"{inst.notes.rstrip()}\n{line}" if inst.notes else line
+        changes.append("note added")
+    if not changes:
+        return _redirect(back, err="Nothing to save.")
+    inst.updated_at = datetime.utcnow()
+    db.add(inst)
+    audit(db, user, "instruction.update", f"instruction:{inst.id}", "; ".join(changes))
+    db.commit()
+    result = ordris_sync.on_status_change(db, inst, previous, inst.status)
+    if result is not None:
+        audit(db, user, "instruction.ordris", f"instruction:{inst.id}", result[1])
+        db.commit()
+        if not result[0]:
+            # The partner's change is saved; the Ordris step is head office's to chase, so the wording stays theirs.
+            return _redirect(back, ok="Saved. Head office will set the property up in Ordris.")
+    return _redirect(back, ok="Saved.")
 
 
 # ---- resources -------------------------------------------------------------
