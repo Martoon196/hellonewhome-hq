@@ -229,7 +229,7 @@
     "partner_phone": "07510 243096",
     "partner_status": "active",
     "partner_tier": "area",
-    "partner_bio": "Martin founded Hello New Home in Swansea and lives in Somerset, where he also runs the sister brand Somerset Lettings. He handles viewings, inspections and landlord calls across the county himself, with contracts, compliance and rent collection run from head office.",
+    "partner_bio": "Martin Howard founded Hello New Home, and in Somerset he is the one at your door. He lives here and does the photographs, viewings, move-ins, move-outs and quarterly inspections himself, writes the report and takes your calls. He also runs Somerset Lettings, founded Property Predator, which analyses rents, yields and deals, and mentors property investors. Whatever happens at your house, the person answering for it started the company.",
     "phone": "01792 807 051",
     "whatsapp": "447510243096",
     "whatsapp_display": "07510 243096",
@@ -267,6 +267,6 @@
     "rent_note": "ONS average private rent for Somerset, August 2026, with the annual change; Bath and North East Somerset averages £1,885 and North Somerset about £1,209. At £1,016 our 12% fee is about £122 a month with no VAT; in Bath, where rents average £1,885, the £150 cap saves you money from the first month.",
     "rent_avg": "£1,016",
     "rent_change": "+6.2%",
-    "revision": 2
+    "revision": 3
   }
 ]
