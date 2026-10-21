@@ -12,6 +12,7 @@
 #                           (kept in the password manager, never in GitHub) can read them.
 #
 # Retention is a lifecycle rule on the bucket (delete after 120 days), not this file.
+# Client tools are PostgreSQL 18: pg_dump must be at least the server's major version, and Neon offers 14 to 18.
 # GitHub pauses scheduled workflows on a repo with no commits for 60 days; the
 # monthly restore drill below also keeps the schedule alive, but check the Actions
 # tab now and then.
@@ -51,14 +52,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Install PostgreSQL 17 client tools
+      - name: Install PostgreSQL 18 client tools
         run: |
           set -euo pipefail
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+          sudo apt-get install -y -qq postgresql-client-18
           pg_dump --version
 
       - name: Dump
@@ -107,7 +108,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:17
+        image: postgres:18
         env:
           POSTGRES_PASSWORD: drill
           POSTGRES_DB: drill
@@ -115,14 +116,14 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - name: Install PostgreSQL 17 client tools
+      - name: Install PostgreSQL 18 client tools
         run: |
           set -euo pipefail
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17 age
+          sudo apt-get install -y -qq postgresql-client-18 age
 
       - name: Fetch the newest dump
         env:
