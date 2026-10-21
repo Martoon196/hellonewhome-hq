@@ -99,9 +99,21 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           set -euo pipefail
-          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          aws s3 cp "$OUT" "s3://${R2_BUCKET}/${APP_NAME}/${OUT}" --endpoint-url "$endpoint" --no-progress
-          aws s3api head-object --bucket "$R2_BUCKET" --key "${APP_NAME}/${OUT}" --endpoint-url "$endpoint" --query ContentLength --output text
+          # Trim stray spaces or line breaks pasted into the secrets, then try the account's standard R2 endpoint and,
+          # failing that, the EU-jurisdiction one, so a bucket created either way works with the same secrets.
+          R2_BUCKET="$(printf '%s' "$R2_BUCKET" | tr -d '[:space:]')"
+          R2_ACCOUNT_ID="$(printf '%s' "$R2_ACCOUNT_ID" | tr -d '[:space:]')"
+          r2() {
+            local ep kind
+            for kind in standard eu; do
+              if [ "$kind" = standard ]; then ep="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"; else ep="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"; fi
+              if "$@" --endpoint-url "$ep" 2>r2-error.txt; then echo "(R2 ${kind} endpoint)" >&2; return 0; fi
+              echo "R2 ${kind} endpoint refused: $(tail -n 1 r2-error.txt)" >&2
+            done
+            return 1
+          }
+          r2 aws s3 cp "$OUT" "s3://${R2_BUCKET}/${APP_NAME}/${OUT}" --no-progress
+          r2 aws s3api head-object --bucket "$R2_BUCKET" --key "${APP_NAME}/${OUT}" --query ContentLength --output text
           rm -f "$OUT"
 
   drill:
@@ -139,12 +151,24 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           set -euo pipefail
-          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          key="$(aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix "${APP_NAME}/" --endpoint-url "$endpoint" \
+          # Trim stray spaces or line breaks pasted into the secrets, then try the account's standard R2 endpoint and,
+          # failing that, the EU-jurisdiction one, so a bucket created either way works with the same secrets.
+          R2_BUCKET="$(printf '%s' "$R2_BUCKET" | tr -d '[:space:]')"
+          R2_ACCOUNT_ID="$(printf '%s' "$R2_ACCOUNT_ID" | tr -d '[:space:]')"
+          r2() {
+            local ep kind
+            for kind in standard eu; do
+              if [ "$kind" = standard ]; then ep="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"; else ep="https://${R2_ACCOUNT_ID}.eu.r2.cloudflarestorage.com"; fi
+              if "$@" --endpoint-url "$ep" 2>r2-error.txt; then echo "(R2 ${kind} endpoint)" >&2; return 0; fi
+              echo "R2 ${kind} endpoint refused: $(tail -n 1 r2-error.txt)" >&2
+            done
+            return 1
+          }
+          key="$(r2 aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix "${APP_NAME}/" \
                  --query 'sort_by(Contents,&LastModified)[-1].Key' --output text)"
           test -n "$key" && test "$key" != "None" || { echo "no dump found under ${APP_NAME}/"; exit 1; }
           echo "restoring $key"
-          aws s3 cp "s3://${R2_BUCKET}/${key}" ./latest --endpoint-url "$endpoint" --no-progress
+          r2 aws s3 cp "s3://${R2_BUCKET}/${key}" ./latest --no-progress
           echo "KEY=$key" >> "$GITHUB_ENV"
 
       - name: Decrypt when needed
