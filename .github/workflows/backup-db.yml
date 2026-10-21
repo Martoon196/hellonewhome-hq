@@ -60,7 +60,10 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-18
-          pg_dump --version
+          # The runner image ships a PostgreSQL 16 cluster, so Ubuntu's pg_wrapper would pick the 16 tools;
+          # put the 18 binaries first on PATH for every later step.
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/18/bin/pg_dump --version
 
       - name: Dump
         env:
@@ -70,6 +73,7 @@ jobs:
           test -n "$DATABASE_URL" || { echo "BACKUP_DATABASE_URL secret is not set"; exit 1; }
           stamp="$(date -u +%Y-%m-%d)"
           out="${APP_NAME}-${stamp}.dump"
+          pg_dump --version
           pg_dump "$DATABASE_URL" --format=custom --compress=6 --no-owner --no-privileges -f "$out"
           tables="$(pg_restore --list "$out" | grep -c 'TABLE DATA' || true)"
           echo "dump: $(stat -c %s "$out") bytes, ${tables} tables with data"
@@ -124,6 +128,8 @@ jobs:
           echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-18 age
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/18/bin/pg_restore --version
 
       - name: Fetch the newest dump
         env:
