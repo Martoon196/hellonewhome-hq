@@ -5,6 +5,7 @@
 {% block sidenav %}
 <a href="/partners"{% if section == "dashboard" %} class="is-active"{% endif %}>Dashboard</a>
 <a href="/partners/leads"{% if section == "leads" %} class="is-active"{% endif %}>Leads</a>
+<a href="/partners/instructions"{% if section == "instructions" %} class="is-active"{% endif %}>Instructions</a>
 <a href="/partners/kit"{% if section == "kit" %} class="is-active"{% endif %}>Marketing kit</a>
 <a href="/partners/resources"{% if section == "resources" %} class="is-active"{% endif %}>Resources</a>
 {% if s.ordris_url %}<a href="{{ s.ordris_url }}" target="_blank" rel="noopener" class="is-external">Ordris ↗</a>{% endif %}

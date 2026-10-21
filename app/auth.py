@@ -1,8 +1,9 @@
-"""Password hashing, signed-cookie sessions and route guards."""
+"""Password hashing, signed-cookie sessions, route guards and the Partner API's client secrets."""
 from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import secrets
 import time
 from datetime import datetime
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import config
 from .db import get_db
-from .models import AuditLog, User
+from .models import ApiClient, AuditLog, User, now
 
 _serializer = URLSafeTimedSerializer(config.SECRET_KEY, salt="hnh-session")
 _PBKDF2_ITERATIONS = 200_000
@@ -199,3 +200,184 @@ def audit(db: Session, user: User | None, action: str, target: str = "", detail:
 def touch_login(db: Session, user: User) -> None:
     user.last_login = datetime.utcnow()
     db.add(user)
+
+
+# ---- Partner API clients ---------------------------------------------------
+# A server-to-server caller (Group HQ first) holds a secret; the database holds only its SHA-256. The
+# caller names itself in X-Partner-Client and sends the secret in X-Service-Token (or as a bearer token),
+# and require_api_client compares the hash of what was sent with the stored one in constant time.
+API_SCOPES = ("partners:read", "partners:write", "properties:read", "properties:write")
+API_CLIENT_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,59}$")
+API_TOKEN_BYTES = 36                   # secrets.token_urlsafe(36) is 48 characters
+API_TOKEN_MIN_LENGTH = 32              # the shortest secret the bootstrap variable is allowed to carry
+API_TOKEN_MAX_LENGTH = 200             # anything longer is refused before it is hashed
+API_FAIL_LIMIT = 30                    # refused credentials per address before the address is answered 429
+API_FAIL_WINDOW = 60 * 60              # for this long (seconds); the same per-process throttle the login forms use
+TOKEN_HEADER = "x-service-token"
+CLIENT_HEADER = "x-partner-client"
+
+
+def generate_api_token() -> str:
+    """A fresh 48-character URL-safe secret. Shown once by the CLI, never stored."""
+    return secrets.token_urlsafe(API_TOKEN_BYTES)
+
+
+def hash_api_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+_NO_CLIENT_HASH = hash_api_token("")   # compared against when no row matches, so a miss costs the same time as a hit
+
+
+def normalise_scopes(scopes) -> list[str]:
+    """A clean, ordered scope list; raises ValueError naming any scope the API does not know."""
+    if isinstance(scopes, str):
+        scopes = scopes.split(",")
+    out: list[str] = []
+    unknown: list[str] = []
+    for raw in scopes or []:
+        scope = str(raw).strip().lower()
+        if not scope:
+            continue
+        if scope not in API_SCOPES:
+            unknown.append(scope)
+        elif scope not in out:
+            out.append(scope)
+    if unknown:
+        raise ValueError(f"unknown scope{'s' if len(unknown) > 1 else ''}: {', '.join(unknown)}. "
+                         f"Known scopes: {', '.join(API_SCOPES)}.")
+    return out
+
+
+def scope_allowed(granted, scope: str) -> bool:
+    """True when `scope` is in the client's list; a write scope also covers the read scope of the same name."""
+    held = {str(s).strip().lower() for s in (granted or []) if isinstance(s, str)}
+    if scope in held:
+        return True
+    name, _, verb = scope.partition(":")
+    return verb == "read" and f"{name}:write" in held
+
+
+def validate_api_client_name(name: str) -> str:
+    cleaned = (name or "").strip().lower()
+    if not API_CLIENT_NAME_RE.match(cleaned):
+        raise ValueError("a client name is 2 to 60 characters: lower-case letters, digits, hyphens and underscores, "
+                         "starting with a letter or digit")
+    return cleaned
+
+
+def create_api_client(db: Session, name: str, scopes, *, token: str | None = None) -> tuple[ApiClient, str]:
+    """Create a client and return it with its secret, the only time the secret exists in clear. The caller
+    (the CLI, or the seed's bootstrap) decides what to do with the string; nothing here logs it."""
+    name = validate_api_client_name(name)
+    if db.query(ApiClient).filter(ApiClient.name == name).first() is not None:
+        raise ValueError(f"an API client named {name} already exists")
+    token = token or generate_api_token()
+    client = ApiClient(name=name, token_hash=hash_api_token(token), scopes=normalise_scopes(scopes), active=True)
+    db.add(client)
+    db.flush()
+    return client, token
+
+
+def rotate_api_client_token(db: Session, client: ApiClient, *, token: str | None = None) -> str:
+    """Replace the client's secret; the old one stops working at the next request."""
+    token = token or generate_api_token()
+    client.token_hash = hash_api_token(token)
+    db.add(client)
+    return token
+
+
+def ensure_api_client(db: Session, name: str, scopes, token: str) -> tuple[ApiClient, str]:
+    """The bootstrap behind HNH_PARTNER_TOKEN_<NAME>: make sure a client with this name carries the hash of
+    `token` and at least these scopes. Returns the client and what happened: "created", "rotated",
+    "scoped" or "unchanged". The active flag is left alone on an existing row, so a client disabled with
+    scripts/api_client.py stays disabled across boots until it is enabled again."""
+    name = validate_api_client_name(name)
+    wanted = normalise_scopes(scopes)
+    client = db.query(ApiClient).filter(ApiClient.name == name).first()
+    if client is None:
+        client, _ = create_api_client(db, name, wanted, token=token)
+        return client, "created"
+    outcome = "unchanged"
+    if not hmac.compare_digest(client.token_hash or "", hash_api_token(token)):
+        rotate_api_client_token(db, client, token=token)
+        outcome = "rotated"
+    merged = normalise_scopes(list(client.scopes or []) + wanted)
+    if merged != list(client.scopes or []):
+        client.scopes = merged
+        db.add(client)
+        outcome = outcome if outcome != "unchanged" else "scoped"
+    return client, outcome
+
+
+class ApiError(HTTPException):
+    """A JSON error for the Partner API: {"ok": false, "reason": <short code>, "message": <sentence>}.
+    The reason is what a connector keys its handling on; the message is for the person reading its log."""
+
+    def __init__(self, status_code: int, reason: str, message: str, *, headers: dict | None = None, **extra):
+        super().__init__(status_code=status_code, detail={"reason": reason, "message": message, **extra}, headers=headers)
+
+
+def api_throttle_key(request: Request) -> str:
+    """The per-address key refused Partner API credentials are counted under."""
+    return f"api:{client_ip(request)}"
+
+
+def presented_api_token(request: Request) -> str:
+    """The secret the caller sent: X-Service-Token, or the bearer token of an Authorization header."""
+    token = (request.headers.get(TOKEN_HEADER) or "").strip()
+    if token:
+        return token
+    scheme, _, value = (request.headers.get("authorization") or "").strip().partition(" ")
+    return value.strip() if scheme.lower() == "bearer" else ""
+
+
+def require_api_client(scope: str):
+    """Dependency factory: the request must come from an active API client that holds `scope`.
+
+    In order: any Origin header is refused (a browser is never a client of this API, whatever it carries);
+    an address that has had API_FAIL_LIMIT credentials refused within API_FAIL_WINDOW is answered 429
+    whatever it sends; the secret must be present; X-Partner-Client must name a client; the hash of the
+    presented secret must equal that client's stored hash (hmac.compare_digest, against a fixed dummy hash
+    when the name is unknown so the two misses take the same time); the client must be active and hold the
+    scope. Every 401 counts against the address. The secret is never logged, stored or echoed, and no
+    message says which of the name and secret was wrong. On success last_used_at is written and the
+    ApiClient row is returned."""
+    if scope not in API_SCOPES:
+        raise ValueError(f"unknown API scope {scope!r}")
+    unauthorised = {"WWW-Authenticate": 'Bearer realm="partner-api"'}
+
+    def refused(request: Request, reason: str, message: str) -> ApiError:
+        throttle_hit(api_throttle_key(request))
+        return ApiError(401, reason, message, headers=unauthorised)
+
+    def dependency(request: Request, db: Session = Depends(get_db)) -> ApiClient:
+        if request.headers.get("origin") is not None:
+            raise ApiError(403, "origin_not_allowed",
+                           "This endpoint is for server-to-server calls only; requests carrying an Origin header are refused.")
+        if not throttle_check(api_throttle_key(request), API_FAIL_LIMIT, API_FAIL_WINDOW):
+            raise ApiError(429, "too_many_attempts", "Too many refused credentials from this address; try again in an hour.",
+                           headers={"Retry-After": str(API_FAIL_WINDOW)})
+        token = presented_api_token(request)
+        if not token:
+            raise refused(request, "missing_token", "Send the client secret in the X-Service-Token header or as a bearer token.")
+        name = (request.headers.get(CLIENT_HEADER) or "").strip().lower()
+        if not name:
+            raise refused(request, "missing_client", "Send the client name in the X-Partner-Client header.")
+        if len(token) > API_TOKEN_MAX_LENGTH:
+            raise refused(request, "invalid_client", "The client name and secret were not recognised.")
+        client = db.query(ApiClient).filter(ApiClient.name == name).first() if API_CLIENT_NAME_RE.match(name) else None
+        stored = client.token_hash if client is not None else _NO_CLIENT_HASH
+        if not hmac.compare_digest(stored or "", hash_api_token(token)) or client is None:
+            raise refused(request, "invalid_client", "The client name and secret were not recognised.")
+        if not client.active:
+            raise refused(request, "client_inactive", "This API client has been disabled.")
+        if not scope_allowed(client.scopes, scope):
+            raise ApiError(403, "scope_missing", f"This client does not have the {scope} scope.")
+        client.last_used_at = now()
+        db.add(client)
+        db.commit()
+        request.state.api_client = client
+        return client
+
+    return dependency

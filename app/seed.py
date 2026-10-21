@@ -6,11 +6,23 @@ import sys
 from sqlalchemy.orm import Session
 
 from . import config
-from .auth import generate_password, hash_password, normalise_email
+from .auth import API_TOKEN_MIN_LENGTH, ensure_api_client, generate_password, hash_password, normalise_email
 from .db import SessionLocal
 from .migrations import run_migrations
 from .models import Area, Partner, Resource, User
 from .services import content, settings
+
+GROUPHQ_CLIENT = "grouphq"
+GROUPHQ_SCOPES = ("partners:write",)
+PROPERTIES_SCOPES = ("properties:write",)
+# The Partner API clients the environment can bootstrap: (client name, scopes, the config attribute holding the
+# secret, the environment variable it came from). Property Predator and Key Properties send property instructions
+# ("Let this property with Hello New Home"); Group HQ seats partners.
+PARTNER_CLIENTS = (
+    (GROUPHQ_CLIENT, GROUPHQ_SCOPES, "PARTNER_TOKEN_GROUPHQ", "HNH_PARTNER_TOKEN_GROUPHQ"),
+    ("propertypredator", PROPERTIES_SCOPES, "PARTNER_TOKEN_PROPERTYPREDATOR", "HNH_PARTNER_TOKEN_PROPERTYPREDATOR"),
+    ("keyproperties", PROPERTIES_SCOPES, "PARTNER_TOKEN_KEYPROPERTIES", "HNH_PARTNER_TOKEN_KEYPROPERTIES"),
+)
 
 
 AREA_SEED_FIELDS = ("name", "region", "covers", "postcodes", "places", "demand", "licensing", "shortlet",
@@ -37,6 +49,13 @@ def _fill_partner(partner: Partner, raw: dict) -> Partner:
     partner.whatsapp_display = _real(raw.get("whatsapp_display"))
     partner.bio = _real(raw.get("partner_bio"))
     return partner
+
+
+def _resource_body(item: dict) -> str:
+    """The HTML body of a seeded page: inline "body", or the file named by "body_file" under content/resources/."""
+    if item.get("body"):
+        return str(item["body"])
+    return content.resource_body(str(item["body_file"])) if item.get("body_file") else ""
 
 
 def _refresh_area(db: Session, area: Area, raw: dict) -> None:
@@ -71,11 +90,14 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
     run_migrations()
     own = db is None
     db = db or SessionLocal()
-    report: dict = {"areas": 0, "refreshed": 0, "partners": 0, "resources": 0, "admin_created": False, "admin_password": None}
+    report: dict = {"areas": 0, "refreshed": 0, "partners": 0, "resources": 0, "admin_created": False, "admin_password": None,
+                    "api_client": None, "api_clients": {}}
     try:
         settings.ensure_defaults(db)
         if config.FEES_CONFIRMED and not settings.get(db, "fees_confirmed"):
             settings.put(db, "fees_confirmed", True)
+        if config.FEES_COMMERCIAL_CONFIRMED and not settings.get(db, "fees_commercial_confirmed"):
+            settings.put(db, "fees_commercial_confirmed", True)
 
         # Areas: new slugs are inserted; existing rows are refreshed only when the seed row carries a higher
         # "revision" than the one recorded in the seed_revisions setting (see _refresh_area).
@@ -114,8 +136,6 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
             )
             db.add(area)
             report["areas"] += 1
-        if applied != (stored_revisions if isinstance(stored_revisions, dict) else {}):
-            settings.put(db, "seed_revisions", applied)
         db.flush()
 
         # Fill bespoke content for areas that have none yet but now have a content file
@@ -134,10 +154,44 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                 db.add(Resource(
                     category=item.get("category", "General"), title=item.get("title", "Untitled"),
                     description=item.get("description", ""), kind=item.get("kind", "link"),
-                    url=item.get("url", ""), is_placeholder=bool(item.get("placeholder", True)), sort=(i + 1) * 10,
-                    visibility="region" if region else "all", region=region,
+                    url=item.get("url", ""), body=_resource_body(item), is_placeholder=bool(item.get("placeholder", True)),
+                    sort=(i + 1) * 10, visibility="region" if region else "all", region=region,
                 ))
                 report["resources"] += 1
+            db.flush()          # the revision loop below looks the rows up by title (the session does not autoflush)
+
+        # Seeded resource pages that carry a "key" and a "revision" (the commercial training page first): inserted on a
+        # live database that already has its library, and refreshed in place whenever the seed's revision is higher
+        # than the one recorded in seed_revisions under "resource:<key>", exactly as area rows are. The row is found
+        # by its title; between bumps, head office's edits to it survive every deploy.
+        for i, item in enumerate(content.resources_seed()):
+            key, rev = item.get("key"), int(item.get("revision") or 0)
+            if not key or not rev:
+                continue
+            tag = f"resource:{key}"
+            if rev <= int(applied.get(tag, 0)):
+                continue
+            region = str(item.get("region") or "").lower()
+            region = region if region in ("england", "wales") else ""
+            res = db.query(Resource).filter(Resource.title == item.get("title", "")).order_by(Resource.id).first()
+            if res is None:
+                res = Resource(title=item.get("title", "Untitled"), sort=(i + 1) * 10)
+                db.add(res)
+                report["resources"] += 1
+            else:
+                report["refreshed"] += 1
+            res.category = item.get("category", "General")
+            res.description = item.get("description", "")
+            res.kind = item.get("kind", "page")
+            res.url = item.get("url", "")
+            res.body = _resource_body(item)
+            res.is_placeholder = bool(item.get("placeholder", False))
+            res.visibility = "region" if region else "all"
+            res.region = region
+            db.add(res)
+            applied[tag] = rev
+        if applied != (stored_revisions if isinstance(stored_revisions, dict) else {}):
+            settings.put(db, "seed_revisions", applied)
 
         # The agency management system is always listed in the resource library (idempotent on its URL).
         ordris_url = str(settings.get(db, "ordris_url") or "").strip()
@@ -162,6 +216,25 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                 # Only a generated password is printed; one supplied through ADMIN_PASSWORD never goes to the log.
                 shown = "(from ADMIN_PASSWORD)" if config.ADMIN_PASSWORD else password
                 print(f"[seed] Admin account created: {config.ADMIN_EMAIL}  password: {shown}", file=sys.stderr)
+
+        # The Partner API clients, bootstrapped from the environment so Render needs no shell step. Only the
+        # SHA-256 of each variable is stored; a value too short to be a real secret is ignored, which leaves the
+        # API closed rather than guarded by a weak one. report["api_client"] keeps Group HQ's outcome by name.
+        for name, scopes, attribute, variable in PARTNER_CLIENTS:
+            secret = getattr(config, attribute, "")
+            if not secret:
+                continue
+            if len(secret) < API_TOKEN_MIN_LENGTH:
+                if not quiet:
+                    print(f"[seed] {variable} is shorter than {API_TOKEN_MIN_LENGTH} characters and was ignored; the "
+                          f"{name} API client was not created or changed", file=sys.stderr)
+                continue
+            _, outcome = ensure_api_client(db, name, scopes, secret)
+            report["api_clients"][name] = outcome
+            if name == GROUPHQ_CLIENT:
+                report["api_client"] = outcome
+            if not quiet and outcome != "unchanged":
+                print(f"[seed] Partner API client {name} {outcome} from {variable}", file=sys.stderr)
 
         db.commit()
         return report

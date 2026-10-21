@@ -22,6 +22,11 @@
 .chips { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; margin: 0; padding: 0; }
 .chip { background: var(--mist); border: 1px solid var(--line); border-radius: 999px; padding: .2rem .65rem; font-size: .82rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .article + .covered { margin-top: 2rem; }
+.homes { margin-top: 2rem; }
+.homes h2 { margin-top: 0; }
+.homes-grid { margin-top: 1rem; }
+.listing-photo { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--mist); }
+.homes-cta { margin-top: 1.2rem; }
 </style>
 {% endblock %}
 {% block content %}
@@ -78,12 +83,21 @@
       <a href="/areas/{{ area.slug }}"{% if page == "hub" %} class="is-active"{% endif %}>Letting agents in {{ area.name }}</a>
       <a href="/areas/{{ area.slug }}/lettings"{% if page == "lettings" %} class="is-active"{% endif %}>Property management</a>
       <a href="/areas/{{ area.slug }}/short-lets"{% if page == "shortlets" %} class="is-active"{% endif %}>Short-let management</a>
+      <a href="/areas/{{ area.slug }}/commercial">Commercial lettings</a>
     </nav>
     <div class="article">
+      {# The homes to rent (lettings page only, and only when Ordris answered with some) sit under the fee
+         section: the first section whose heading mentions the fee, else after the last section. #}
+      {% set homes = namespace(placed=false) %}
       {% for sec in pc.sections %}
       <h2>{{ sec.h2 }}</h2>
       {{ sec.html | safe }}
+      {% if listings and not homes.placed and ("fee" in (sec.h2 or "") | lower or loop.last) %}
+      {% set homes.placed = true %}
+      {% include "public/partials/listings.html" %}
+      {% endif %}
       {% endfor %}
+      {% if listings and not homes.placed %}{% include "public/partials/listings.html" %}{% endif %}
     </div>
     {% if page != "hub" %}{{ postcode_chips(area) }}{% endif %}
   </div>

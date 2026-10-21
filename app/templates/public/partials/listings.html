@@ -1,0 +1,21 @@
+{# Homes to rent in the area, read from Ordris (app/services/ordris_listings.py, plan Phase 6 C5). Included by
+   public/area.html under the fee section of the lettings page, and only when `listings` has something in it.
+   Every value is one of for_template()'s view fields: outward code, bedrooms, type, rent, availability and the
+   first photo with its alt text. No address, no person, no link but the valuation form. #}
+<div class="homes" id="homes-to-rent">
+  <h2>Homes to rent in {{ area.name }}</h2>
+  <p>What we are letting in {{ area.name }} at the moment, refreshed every hour.</p>
+  <div class="grid grid-2 homes-grid">
+    {% for h in listings %}
+    <article class="listing">
+      {% if h.photo %}<img class="listing-photo" src="{{ h.photo }}" alt="{{ h.alt }}" loading="lazy">{% else %}<div class="listing-art"><span class="tag">To let</span>{{ h.outward }}</div>{% endif %}
+      <div class="listing-body">
+        {% if h.rent %}<span class="rent">{{ h.rent }} <small>pcm</small></span>{% endif %}
+        <span class="addr">{% if h.bedrooms %}{{ h.bedrooms }} bedroom{{ "s" if h.bedrooms != 1 else "" }} · {% endif %}{{ h.property_type }}</span>
+        <span class="spec">{{ h.outward }}{% if h.available %} · Available {{ h.available }}{% endif %}</span>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <p class="homes-cta"><a class="btn btn-primary" href="/valuation?area={{ area.slug }}">Let your {{ area.name }} property with us: free rent review</a></p>
+</div>

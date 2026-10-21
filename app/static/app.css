@@ -36,6 +36,9 @@ table.data th { font-size: .74rem; letter-spacing: .1em; text-transform: upperca
 .status-contacted { background: #E8F1FB; color: #1F4E8C; }
 .status-booked { background: #FFF1C9; color: #7A5200; }
 .status-instructed { background: #E3F5EA; color: #17814A; }
+.status-appraised { background: #EDE7F6; color: #4527A0; }
+.status-let, .status-sent { background: #17814A; color: #fff; }
+.status-failed { background: #FDE8EE; color: #9B1C4B; }
 .status-lost, .status-paused, .status-left { background: #EEE; color: #666; }
 .status-active { background: #E3F5EA; color: #17814A; }
 .status-coming, .status-pending { background: #FFF1C9; color: #7A5200; }

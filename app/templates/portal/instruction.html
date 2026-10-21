@@ -1,0 +1,67 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .lead-head { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; }
+  .contact-row { display: flex; flex-wrap: wrap; gap: .6rem; margin: .4rem 0 1.2rem; }
+  table.data td.k { width: 32%; font-weight: 700; color: var(--muted); }
+  table.data td.v { white-space: pre-wrap; word-break: break-word; }
+  .notes { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .5rem; }
+  .notes li { background: var(--mist); border-radius: 10px; padding: .6rem .8rem; font-size: .92rem; white-space: pre-wrap; word-break: break-word; }
+  .timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; font-size: .9rem; }
+  .timeline li { border-left: 3px solid var(--line); padding: .1rem 0 .1rem .8rem; }
+  .timeline .when { font-size: .8rem; color: var(--muted); }
+</style>{% endblock %}
+{% block content %}
+<p class="small"><a href="/partners/instructions">All instructions</a></p>
+<div class="page-title lead-head">
+  <div>
+    <span class="eyebrow">{{ inst.ref }} · {{ service_labels.get(inst.service_line, inst.service_line) }}</span>
+    <h1>{{ inst.landlord_name }}</h1>
+    <p class="muted mb-0">Arrived {{ inst.created_at | uk("%d %b %Y at %H:%M") }} from {{ origin_labels.get(inst.origin_system, inst.origin_system) }}{% if inst.area %} · {{ inst.area.name }}{% endif %} · {{ inst.postcode }}</p>
+  </div>
+  <span class="status status-{{ inst.status }}">{{ inst.status }}</span>
+</div>
+
+<div class="contact-row mt-1">
+  {% if wa_href %}<a class="btn btn-wa btn-sm" href="{{ wa_href }}" target="_blank" rel="noopener">WhatsApp {{ wa_display }}</a>{% endif %}
+  {% if tel_href %}<a class="btn btn-ghost btn-sm" href="{{ tel_href }}">Call {{ inst.landlord_phone }}</a>{% endif %}
+  {% if inst.landlord_email %}<a class="btn btn-ghost btn-sm" href="mailto:{{ inst.landlord_email }}">Email {{ inst.landlord_email }}</a>{% endif %}
+</div>
+<p class="help">The landlord agreed to be contacted by Hello New Home about this property on {{ inst.consent_at | uk("%d %b %Y") }}. Keep to that: it is the only purpose their details were shared for.</p>
+
+<div class="two-col">
+  <section class="panel">
+    <h2>The property</h2>
+    <table class="data">
+      <tbody>
+      <tr><td class="k">Address</td><td class="v">{{ inst.address }}</td></tr>
+      <tr><td class="k">Postcode</td><td class="v">{{ inst.postcode }}</td></tr>
+      <tr><td class="k">Service</td><td class="v">{{ service_labels.get(inst.service_line, inst.service_line) }}</td></tr>
+      <tr><td class="k">Bedrooms</td><td class="v">{{ inst.bedrooms if inst.bedrooms is not none else "not said" }}</td></tr>
+      <tr><td class="k">Type</td><td class="v">{{ inst.property_type or "not said" }}</td></tr>
+      <tr><td class="k">Furnished</td><td class="v">{{ furnished_labels.get(inst.furnished, inst.furnished) }}</td></tr>
+      <tr><td class="k">Landlord's rent expectation</td><td class="v">{% if inst.rent_expectation %}£{{ "{:,}".format(inst.rent_expectation) }} a month{% else %}not said{% endif %}</td></tr>
+      <tr><td class="k">Available from</td><td class="v">{{ inst.available_from.strftime("%d %b %Y") if inst.available_from else "not said" }}</td></tr>
+      {% if inst.sent_to_ordris %}<tr><td class="k">Ordris</td><td class="v">Set up by head office (property {{ inst.ordris_property_id }})</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel">
+    <h2>Progress</h2>
+    <form method="post" action="/partners/instructions/{{ inst.id }}" class="form">
+      <div class="field"><label for="status">Status</label>
+        <select id="status" name="status">{% for st in statuses %}<option value="{{ st }}"{% if st == inst.status %} selected{% endif %}>{{ status_labels[st] }}</option>{% endfor %}</select>
+        <span class="hint">Mark it instructed once the landlord has signed; head office then sets the property up in Ordris.</span></div>
+      <div class="field mt-1"><label for="note">Add a note</label>
+        <textarea id="note" name="note" rows="3" placeholder="Spoke at 10.15, appraisal booked for Thursday"></textarea>
+        <span class="hint">Notes are stamped with the time and your name, and head office can see them.</span></div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+    <h2 class="mt-2">Notes</h2>
+    {% if notes %}<ul class="notes">{% for n in notes %}<li>{{ n }}</li>{% endfor %}</ul>{% else %}<p class="muted">No notes yet.</p>{% endif %}
+    <h2 class="mt-2">History</h2>
+    {% if history %}
+    <ul class="timeline">{% for h in history %}<li><span class="when">{{ h.at }} · {{ h.by }}</span><br>{{ h["from"] or "arrived" }} to {{ h.to }}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No changes yet.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

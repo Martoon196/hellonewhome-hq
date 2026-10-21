@@ -1,5 +1,16 @@
 [
   {
+    "key": "commercial-training",
+    "revision": 2,
+    "category": "Training",
+    "title": "Commercial lettings: what is different",
+    "description": "Shops, offices, workshops and units on a business lease: no deposit scheme, no Renters' Rights Act, no Right to Rent; security of tenure under the Landlord and Tenant Act 1954 and contracting out; MEES for non-domestic property; business rates and empty-rates relief; the VAT option to tax; the Code for Leasing Business Premises 2020. With the short checklist head office needs before it appraises.",
+    "kind": "page",
+    "body_file": "commercial-lettings",
+    "region": "both",
+    "placeholder": false
+  },
+  {
     "category": "Contracts & paperwork",
     "title": "England tenancy agreement (assured periodic)",
     "description": "Head office's standard assured periodic tenancy for England under the Renters' Rights Act 2025, with the written statement of terms the Act requires before the tenancy starts. Issued by head office only; partners never edit or sign it.",

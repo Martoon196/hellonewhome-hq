@@ -42,6 +42,16 @@ def resources_seed() -> list:
     return _load(config.CONTENT_DIR / "resources-seed.json", [])
 
 
+def resource_body(name: str) -> str:
+    """The HTML body of a seeded in-app resource page, kept as a file under content/resources/ so it can be
+    written and read as HTML rather than as a JSON string. Missing file: an empty body, never a failed boot."""
+    path = config.CONTENT_DIR / "resources" / f"{name}.html"
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
 def areas_seed() -> list:
     return _load(config.CONTENT_DIR / "areas-seed.json", [])
 

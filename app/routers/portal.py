@@ -27,8 +27,8 @@ from ..auth import (PARTNER_PAUSED_MESSAGE, audit, check_origin, clear_session, 
                     login_allowed, partner_blocked, require_partner, safe_next, set_session, throttle_hit, touch_login,
                     verify_password)
 from ..db import get_db
-from ..models import Announcement, Area, Lead, Partner, Resource, User
-from ..services import content, kit, settings
+from ..models import Announcement, Area, Instruction, Lead, Partner, Resource, User
+from ..services import content, instructions, kit, ordris_sync, routing, settings
 from ..services.times import now_uk_stamp
 
 log = logging.getLogger("hnh.portal")
@@ -36,8 +36,9 @@ router = APIRouter(prefix="/partners", dependencies=[Depends(check_origin)])
 
 LEAD_STATUSES = ("new", "contacted", "booked", "instructed", "lost")
 LEAD_KIND_LABELS = {
-    "rent_review": "rent review", "sa_appraisal": "short-let appraisal", "contact": "enquiry", "alert": "property alert",
-    "partner_application": "partner application", "enquiry": "enquiry", "partner_request": "change request",
+    "rent_review": "rent review", "sa_appraisal": "short-let appraisal", "commercial_appraisal": "commercial appraisal",
+    "contact": "enquiry", "alert": "property alert", "partner_application": "partner application", "enquiry": "enquiry",
+    "partner_request": "change request",
 }
 PHOTO_TYPES = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
 PHOTO_MAX_MB = min(5, config.MAX_UPLOAD_MB)
@@ -120,12 +121,18 @@ def _dom_id(value) -> str:
 
 
 def _scoped_leads(db: Session, user: User, areas: list[Area]):
-    """Leads this user may see. Partner change requests are HQ's, not the partner's, so they are left out."""
+    """Leads this user may see. Partner change requests are HQ's, not the partner's, so they are left out, and so
+    is a commercial appraisal unless the partner is cleared to take commercial instructions (services.routing)."""
     q = db.query(Lead).filter(Lead.kind != "partner_request")
     if user.role == "admin":
         return q
     ids = [a.id for a in areas]
-    return q.filter(Lead.area_id.in_(ids)) if ids else q.filter(false())
+    if not ids:
+        return q.filter(false())
+    q = q.filter(Lead.area_id.in_(ids))
+    if not routing.partner_can_take(user.partner, commercial=True):
+        q = q.filter(Lead.kind != routing.COMMERCIAL_LEAD_KIND)
+    return q
 
 
 def _lead_or_404(db: Session, user: User, lead_id: int) -> Lead:
@@ -369,6 +376,100 @@ def lead_update(lead_id: int, request: Request, status: str = Form(""), note: st
     return _redirect(f"/partners/leads/{lead.id}", ok="Saved.")
 
 
+# ---- property instructions -------------------------------------------------
+# What a partner sees of an instruction is the money-free view: the landlord's contact details, the property,
+# where it stands and the notes. The raw payload the sender posted, the introducer's account ids and any fee
+# figure stay with head office.
+def _instruction_or_404(db: Session, user: User, instruction_id: int) -> Instruction:
+    inst = instructions.scoped(db, user, partner_areas(db, user)).filter(Instruction.id == instruction_id).first()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instruction not found")
+    return inst
+
+
+def _instruction_ctx(db: Session, user: User, extra: dict) -> dict:
+    ctx = {"db": db, "user": user, "section": "instructions", "statuses": instructions.STATUSES,
+           "status_labels": instructions.STATUS_LABELS, "origin_labels": instructions.ORIGIN_LABELS,
+           "service_labels": instructions.SERVICE_LINE_LABELS, "furnished_labels": instructions.FURNISHED_LABELS}
+    ctx.update(extra)
+    return ctx
+
+
+@router.get("/instructions", response_class=HTMLResponse)
+def instructions_list(request: Request, status: str = "", page: int = 1, ok: str = "", err: str = "",
+                      db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    areas = partner_areas(db, user)
+    q = instructions.scoped(db, user, areas)
+    status = status if status in instructions.STATUSES else ""
+    if status:
+        q = q.filter(Instruction.status == status)
+    per_page = 50
+    total = q.count()
+    pages = max(1, math.ceil(total / per_page))
+    page = min(max(1, page), pages)
+    rows = q.order_by(Instruction.created_at.desc(), Instruction.id.desc()).offset((page - 1) * per_page).limit(per_page).all()
+
+    def page_url(n: int) -> str:
+        params = {"status": status} if status else {}
+        params["page"] = n
+        return "/partners/instructions?" + urlencode(params)
+
+    return render_portal(request, "portal/instructions.html", _instruction_ctx(db, user, {
+        "rows": rows, "total": total, "page": page, "pages": pages, "status": status, "page_url": page_url, **_flash(ok, err),
+    }))
+
+
+@router.get("/instructions/{instruction_id}", response_class=HTMLResponse)
+def instruction_detail(instruction_id: int, request: Request, ok: str = "", err: str = "",
+                       db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    inst = _instruction_or_404(db, user, instruction_id)
+    partner_first = user.partner.display_first if user.partner else "the team"
+    first = (inst.landlord_name or "").split()[0] if inst.landlord_name else ""
+    wa = wa_digits(inst.landlord_phone)
+    wa_text = (f"Hi{' ' + first if first else ''}, it's {partner_first} from Hello New Home about letting your property at "
+               f"{inst.address.split(',')[0].strip()}.")
+    notes = [ln for ln in (inst.notes or "").splitlines() if ln.strip()]
+    return render_portal(request, "portal/instruction.html", _instruction_ctx(db, user, {
+        "inst": inst, "notes": notes, "history": list(reversed(inst.status_history or [])),
+        "wa": wa, "wa_display": wa_display(wa), "wa_href": f"https://wa.me/{wa}?text={quote(wa_text)}" if wa else "",
+        "tel_href": _tel_href(inst.landlord_phone), **_flash(ok, err),
+    }))
+
+
+@router.post("/instructions/{instruction_id}")
+def instruction_update(instruction_id: int, request: Request, status: str = Form(""), note: str = Form(""),
+                       db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    inst = _instruction_or_404(db, user, instruction_id)
+    back = f"/partners/instructions/{inst.id}"
+    changes: list[str] = []
+    previous = inst.status
+    status = status.strip().lower()
+    if status and status not in instructions.STATUSES:
+        return _redirect(back, err="That status is not recognised.")
+    who = user.partner.display_first if user.partner else user.email
+    if status and instructions.set_status(inst, status, f"partner:{who}"):
+        changes.append(f"status {previous} to {status}")
+    note = note.strip()
+    if note:
+        line = f"[{now_uk_stamp()} {who}] {' '.join(note.split())[:1000]}"
+        inst.notes = f"{inst.notes.rstrip()}\n{line}" if inst.notes else line
+        changes.append("note added")
+    if not changes:
+        return _redirect(back, err="Nothing to save.")
+    inst.updated_at = datetime.utcnow()
+    db.add(inst)
+    audit(db, user, "instruction.update", f"instruction:{inst.id}", "; ".join(changes))
+    db.commit()
+    result = ordris_sync.on_status_change(db, inst, previous, inst.status)
+    if result is not None:
+        audit(db, user, "instruction.ordris", f"instruction:{inst.id}", result[1])
+        db.commit()
+        if not result[0]:
+            # The partner's change is saved; the Ordris step is head office's to chase, so the wording stays theirs.
+            return _redirect(back, ok="Saved. Head office will set the property up in Ordris.")
+    return _redirect(back, ok="Saved.")
+
+
 # ---- resources -------------------------------------------------------------
 @router.get("/resources", response_class=HTMLResponse)
 def resources(request: Request, ok: str = "", err: str = "", db: Session = Depends(get_db), user: User = Depends(require_partner)):
@@ -451,7 +552,11 @@ def kit_index(request: Request, area: str = "", tab: str = "flyers", pillar: str
     s = settings.get_all(db)
     if ar is None:
         return render_portal(request, "portal/kit.html", {"db": db, "user": user, "section": "kit", "areas": areas, "area": None})
-    tab = tab if tab in dict(KIT_TABS) else "flyers"
+    # The commercial appraisal checklist is a tab for head office and for a partner cleared to take commercial
+    # instructions; everyone else sees the kit exactly as before.
+    commercial = user.role == "admin" or routing.partner_can_take(user.partner, commercial=True)
+    tabs = list(KIT_TABS) + ([("commercial", "Commercial")] if commercial else [])
+    tab = tab if tab in dict(tabs) else "flyers"
 
     flyers = [_render_item(f, ctx, html_ctx) for f in _tpl_list(tpl, "flyers")]
     posts_all = [_render_item(p, ctx, html_ctx) for p in _tpl_list(tpl, "fb_posts")
@@ -474,12 +579,16 @@ def kit_index(request: Request, area: str = "", tab: str = "flyers", pillar: str
     counts = {"flyers": len(flyers), "fb": len(posts), "graphics": len(graphics),
               "gbp": len(gbp_services) + len(gbp_posts) + len(gbp_qna) + (1 if gbp.get("description") else 0),
               "letters": len(letters), "scripts": len(scripts)}
+    if commercial:
+        counts["commercial"] = len(kit.COMMERCIAL_APPRAISAL_CHECKLIST)
     return render_portal(request, "portal/kit.html", {
-        "db": db, "user": user, "section": "kit", "areas": areas, "area": ar, "ctx": ctx, "tab": tab, "tabs": KIT_TABS,
+        "db": db, "user": user, "section": "kit", "areas": areas, "area": ar, "ctx": ctx, "tab": tab, "tabs": tabs,
         "counts": counts, "flyers": flyers, "posts": posts, "pillars": pillars, "pillar": pillar, "region": region,
         "graphics": graphics, "gbp": gbp, "gbp_services": gbp_services, "gbp_posts": gbp_posts, "gbp_qna": gbp_qna,
         "gbp_lists": gbp_lists, "letters": letters, "scripts": scripts, "formats": _GRAPHIC_FORMATS,
         "fees_confirmed": bool(s.get("fees_confirmed")), "empty": not any(counts.values()),
+        "commercial_checklist": kit.COMMERCIAL_APPRAISAL_CHECKLIST if commercial else [],
+        "commercial_checklist_text": kit.commercial_checklist_text() if commercial else "",
     })
 
 

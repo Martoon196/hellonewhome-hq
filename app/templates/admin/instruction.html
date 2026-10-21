@@ -1,0 +1,132 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = inst.ref ~ ": " ~ inst.landlord_name ~ " | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: .6rem; }
+  .timeline li { border-left: 3px solid var(--line); padding: .1rem 0 .1rem .9rem; }
+  .timeline .when { font-size: .8rem; color: var(--muted); }
+  table.data td.k { color: var(--muted); font-weight: 700; width: 32%; }
+  .payload-val { white-space: pre-wrap; word-break: break-word; }
+  .ordris-box { border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; margin-top: .8rem; }
+  .ordris-box.is-sent { background: #E3F5EA; }
+  .ordris-box.is-waiting { background: #FDE8EE; }
+  .ordris-box form { display: inline; }
+  .outbox-row { font-size: .9rem; margin: .4rem 0; }
+  .err { color: #9B1C4B; word-break: break-word; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Instruction {{ inst.ref }} · from {{ origin_labels.get(inst.origin_system, inst.origin_system) }}</span>
+  <h1>{{ inst.landlord_name }} <span class="status status-{{ inst.status }}">{{ inst.status }}</span></h1>
+  <div class="actions"><a class="btn btn-ghost btn-sm" href="/admin/instructions">All instructions</a></div>
+</div>
+
+<div class="two-col">
+  <div>
+    <section class="panel">
+      <h2>Landlord</h2>
+      <dl class="kv">
+        <dt>Name</dt><dd>{{ inst.landlord_name }}</dd>
+        <dt>Phone</dt><dd>{% if inst.landlord_phone %}<a href="tel:{{ inst.landlord_phone }}">{{ inst.landlord_phone }}</a>{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Email</dt><dd>{% if inst.landlord_email %}<a href="mailto:{{ inst.landlord_email }}">{{ inst.landlord_email }}</a>{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Consent</dt><dd>Given {{ inst.consent_at | uk("%d %b %Y %H:%M") }} against wording <code>{{ inst.consent_text_version }}</code></dd>
+        <dt>Received</dt><dd>{{ inst.created_at | uk("%d %b %Y %H:%M") }}</dd>
+        <dt>Sender's reference</dt><dd><code>{{ inst.external_ref }}</code>{% if inst.origin_url %} · <a href="{{ inst.origin_url }}" target="_blank" rel="noopener">open at source ↗</a>{% endif %}</dd>
+        <dt>Introducer</dt><dd>{% if inst.introducer_person_key or inst.introducer_pp_account_id or inst.introducer_kp_user_id %}{{ inst.introducer_person_key or "" }}{% if inst.introducer_pp_account_id %} · PP account {{ inst.introducer_pp_account_id }}{% endif %}{% if inst.introducer_kp_user_id %} · KP user {{ inst.introducer_kp_user_id }}{% endif %}{% else %}<span class="muted">none recorded</span>{% endif %}</dd>
+      </dl>
+    </section>
+    <section class="panel mt-2">
+      <h2>Property</h2>
+      <dl class="kv">
+        <dt>Address</dt><dd>{{ inst.address }}</dd>
+        <dt>Postcode</dt><dd>{{ inst.postcode }} <span class="small muted">({{ inst.outward }})</span></dd>
+        <dt>Service</dt><dd>{{ service_labels.get(inst.service_line, inst.service_line) }}</dd>
+        <dt>Bedrooms</dt><dd>{{ inst.bedrooms if inst.bedrooms is not none else "not said" }}</dd>
+        <dt>Type</dt><dd>{{ inst.property_type or "not said" }}</dd>
+        <dt>Furnished</dt><dd>{{ furnished_labels.get(inst.furnished, inst.furnished) }}</dd>
+        <dt>Rent expectation</dt><dd>{% if inst.rent_expectation %}£{{ "{:,}".format(inst.rent_expectation) }} a month (the landlord's figure){% else %}not said{% endif %}</dd>
+        <dt>Available from</dt><dd>{{ inst.available_from.strftime("%d %b %Y") if inst.available_from else "not said" }}</dd>
+        <dt>Area</dt><dd>{% if inst.area %}<a href="/admin/areas/{{ inst.area.id }}">{{ inst.area.name }}</a>{% else %}<span class="muted">Not covered</span>{% endif %}</dd>
+        <dt>Partner</dt><dd>{% if inst.partner %}<a href="/admin/partners/{{ inst.partner.id }}">{{ inst.partner.name }}</a>{% elif inst.area and inst.area.is_hq %}Head office{% else %}<span class="muted">none</span>{% endif %}</dd>
+      </dl>
+    </section>
+    <section class="panel mt-2">
+      <h2>Ordris</h2>
+      {% if inst.sent_to_ordris %}
+      <div class="ordris-box is-sent">In Ordris: landlord client <code>{{ inst.ordris_landlord_client_id or "-" }}</code>, property <code>{{ inst.ordris_property_id or "-" }}</code>{% if inst.ordris_tenancy_id %}, tenancy <code>{{ inst.ordris_tenancy_id }}</code>{% endif %}.</div>
+      {% elif inst.status in ("instructed", "let") %}
+      <div class="ordris-box is-waiting">Not in Ordris yet.{% if not ordris_configured %} Ordris is not configured on this service (ORDRIS_BASE_URL, ORDRIS_PARTNER_TOKEN_HNH).{% endif %}
+        {% if can_send %}<form method="post" action="/admin/instructions/{{ inst.id }}/send"><button class="btn btn-primary btn-sm" type="submit">Send to Ordris</button></form>{% endif %}</div>
+      {% else %}
+      <p class="muted">The landlord and property go to Ordris when the status becomes instructed.</p>
+      {% endif %}
+      {% if outbox %}
+      <h3 class="mt-1">Messages</h3>
+      {% for o in outbox %}
+      <div class="outbox-row">
+        <span class="status status-{{ o.state }}">{{ o.state }}</span>
+        #{{ o.id }} · {{ o.attempts }} attempt{{ "s" if o.attempts != 1 else "" }} · queued {{ o.created_at | uk("%d %b %Y %H:%M") }}{% if o.sent_at %} · sent {{ o.sent_at | uk("%d %b %Y %H:%M") }}{% endif %}
+        {% if o.state != "sent" %}<form method="post" action="/admin/instructions/{{ inst.id }}/outbox/{{ o.id }}/resend"><button class="btn btn-ghost btn-sm" type="submit">Resend</button></form>{% endif %}
+        {% if o.last_error %}<br><span class="err">{{ o.last_error }}</span>{% endif %}
+      </div>
+      {% endfor %}
+      {% endif %}
+    </section>
+    <section class="panel mt-2">
+      <h2>Everything the sender posted</h2>
+      {% if payload %}
+      <table class="data">
+        <tbody>
+        {% for k, v in payload %}<tr><td class="k">{{ k|replace("_", " ") }}</td><td class="payload-val">{{ v }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="muted">Nothing beyond the fields above.</p>{% endif %}
+    </section>
+  </div>
+  <div>
+    <form method="post" action="/admin/instructions/{{ inst.id }}" class="form">
+      <h2 class="mt-0" style="border:0;padding:0">Update</h2>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">{% for st in statuses %}<option value="{{ st }}"{% if inst.status == st %} selected{% endif %}>{{ status_labels[st] }}</option>{% endfor %}</select>
+        <span class="hint">Instructed sends the landlord and property to Ordris.</span>
+      </div>
+      <div class="field mt-1">
+        <label for="area_id">Area</label>
+        <select id="area_id" name="area_id">
+          <option value="">Not covered</option>
+          {% for a in areas %}<option value="{{ a.id }}"{% if inst.area_id == a.id %} selected{% endif %}>{{ a.name }} ({{ a.status }}){% if a.is_hq %} - head office{% elif a.partner %} - {{ a.partner.name }}{% else %} - no partner{% endif %}</option>{% endfor %}
+        </select>
+        <span class="hint">Reassigning also moves the instruction to that area's partner (or head office).</span>
+      </div>
+      <div class="field mt-1">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" rows="6">{{ inst.notes }}</textarea>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+    <section class="panel mt-2">
+      <h2>Status history</h2>
+      {% if history %}
+      <ul class="timeline">
+        {% for h in history %}
+        <li><span class="when">{{ h.at }} · {{ h.by }}</span><br>{{ h["from"] or "arrived" }} to {{ h.to }}{% if h.note %}: {{ h.note }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">No changes yet.</p>{% endif %}
+    </section>
+    <section class="panel mt-2">
+      <h2>Timeline</h2>
+      {% if timeline %}
+      <ul class="timeline">
+        {% for entry, email in timeline %}
+        <li><span class="when">{{ entry.created_at | uk("%d %b %Y %H:%M") }} · {{ email or "system" }}</span><br>{{ entry.action|replace("instruction.", "")|replace("partner_api.", "")|replace("_", " ")|replace(".", " ")|capitalize }}{% if entry.detail %}: {{ entry.detail }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="muted">No updates yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

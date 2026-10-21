@@ -18,7 +18,7 @@
     <tr>
       <td><a href="/admin/partners/{{ p.id }}"><strong>{{ p.name }}</strong></a>{% if p.first_name %}<br><span class="small muted">{{ p.first_name }}</span>{% endif %}</td>
       <td><span class="status status-{{ p.status }}">{{ p.status }}</span></td>
-      <td>{{ "Area Partner" if p.tier == "area" else "Introducer" }}</td>
+      <td>{{ "Area Partner" if p.tier == "area" else "Introducer" }}{% if p.commercial_enabled %}<br><span class="small muted">commercial</span>{% endif %}</td>
       <td>{% for a in p.areas %}<a href="/admin/areas/{{ a.id }}">{{ a.name }}</a>{% if not loop.last %}, {% endif %}{% else %}<span class="muted">None</span>{% endfor %}</td>
       <td>{{ p.email or "" }}</td>
       <td>{{ p.whatsapp_display or p.whatsapp or "" }}</td>

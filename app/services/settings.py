@@ -41,7 +41,37 @@ DEFAULTS: dict[str, object] = {
         "sa_full_pct": "18%",
         "sa_cohost_pct": "12%",
     },
+    # Commercial property lettings (plan, Phase 5). Every figure is a proposal awaiting the founder's decision:
+    # while fees_commercial_confirmed is False the public pages say only that fees are quoted after the appraisal
+    # and the admin settings page carries a [CONFIRM] badge. FEES_COMMERCIAL_CONFIRMED=1 in the environment
+    # confirms it on boot, as FEES_CONFIRMED does for the residential sheet.
+    "fees_commercial_confirmed": False,
+    "fees_commercial": {
+        "letting_pct": "10%",
+        "letting_basis": "of the first year's rent",
+        "letting_minimum": "£1,500",
+        "management_pct": "8%",
+        "management_basis": "of rent collected",
+        "lease_renewal": "£750",
+        "schedule_of_condition": "£350",
+        "vat_note": "plus VAT only if Hello New Home 2 Ltd registers for VAT",
+    },
 }
+
+# The exact sentence the public pages show in place of the commercial fee sheet until it is confirmed.
+FEES_PENDING_SENTENCE = "Fees are quoted after the appraisal"
+
+
+def commercial_fees(current: dict) -> dict | None:
+    """The commercial fee sheet as the public pages may show it: the figures when confirmed, None otherwise.
+    `current` is the dict from get_all; a stored sheet missing a key falls back to the default for that key."""
+    if not current.get("fees_commercial_confirmed"):
+        return None
+    stored = current.get("fees_commercial")
+    sheet = dict(DEFAULTS["fees_commercial"])
+    if isinstance(stored, dict):
+        sheet.update({k: v for k, v in stored.items() if k in sheet and v not in (None, "")})
+    return sheet
 
 
 def get_all(db: Session) -> dict:

@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+{% import "admin/_fields.html" as f %}
+{% set title = "Instructions | Admin" %}
+{% block head %}{{ f.styles() }}
+<style>
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .8rem; align-items: end; }
+  .filters .field input, .filters .field select { padding: .55rem .7rem; }
+  .filters .form-actions { margin: 0; }
+  .pager { display: flex; gap: .8rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 1rem; }
+  .pager .btn[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+  .ref { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .88rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Let with Hello New Home</span>
+  <h1>Instructions</h1>
+  <p class="help">Properties sent to be let by Property Predator, Key Properties and the website, routed by postcode. Marking one instructed sends the landlord and property to Ordris.</p>
+  <p class="help" id="listings-status">Homes to rent on the area pages (read from Ordris by this instance): {% if listings_status.last_refreshed %}last refreshed {{ listings_status.last_refreshed | uk("%d %b %Y %H:%M") }}, {{ listings_status.cached }} area set{{ "s" if listings_status.cached != 1 else "" }} cached{% if listings_status.stale %}, {{ listings_status.stale }} kept from an earlier answer{% endif %}{% elif not listings_status.configured %}not refreshed yet; Ordris is not configured, so the area pages show none{% else %}not refreshed yet; the first lettings page view will read them{% endif %}{% if listings_status.last_error %}. Last problem{% if listings_status.last_error_at %} at {{ listings_status.last_error_at | uk("%d %b %Y %H:%M") }}{% endif %}: {{ listings_status.last_error }}{% endif %}.</p>
+</div>
+{% if waiting %}<div class="flash flash-err">{{ waiting }} message{{ "s" if waiting != 1 else "" }} to Ordris still waiting or failed.{% if not ordris_configured %} Ordris is not configured: set ORDRIS_BASE_URL and ORDRIS_PARTNER_TOKEN_HNH.{% endif %}</div>{% endif %}
+
+<section class="panel">
+  <form method="get" action="/admin/instructions" class="filters">
+    <div class="field">
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <option value="">Any status</option>
+        <option value="open"{% if filters.status == "open" %} selected{% endif %}>Open (new, contacted, appraised)</option>
+        {% for st in statuses %}<option value="{{ st }}"{% if filters.status == st %} selected{% endif %}>{{ status_labels[st] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="area">Area</label>
+      <select id="area" name="area">
+        <option value="">Any area</option>
+        <option value="none"{% if filters.area == "none" %} selected{% endif %}>Not covered</option>
+        {% for a in areas %}<option value="{{ a.id }}"{% if filters.area == a.id|string %} selected{% endif %}>{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="origin">From</label>
+      <select id="origin" name="origin">
+        <option value="">Anywhere</option>
+        {% for o in origins %}<option value="{{ o }}"{% if filters.origin == o %} selected{% endif %}>{{ origin_labels[o] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="service">Service</label>
+      <select id="service" name="service">
+        <option value="">Any service</option>
+        {% for sl in service_lines %}<option value="{{ sl }}"{% if filters.service == sl %} selected{% endif %}>{{ service_labels[sl] }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="q">Search</label>
+      <input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Reference, landlord, address or postcode">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary btn-sm" type="submit">Filter</button>
+      {% if qs %}<a class="btn btn-ghost btn-sm" href="/admin/instructions">Clear</a>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="panel mt-2">
+  <div class="panel-head">
+    <h2>{{ total }} instruction{{ "s" if total != 1 else "" }}{% if qs %} matching{% endif %}</h2>
+    <span class="help">Newest first, {{ page_size }} a page.</span>
+  </div>
+  {% if rows %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>Ref</th><th>When</th><th>Landlord</th><th>Property</th><th>From</th><th>Area</th><th>Partner</th><th>Status</th><th>Ordris</th></tr></thead>
+    <tbody>
+    {% for i in rows %}
+    <tr>
+      <td class="nowrap"><a class="ref" href="/admin/instructions/{{ i.id }}"><strong>{{ i.ref }}</strong></a></td>
+      <td class="nowrap">{{ i.created_at | uk("%d %b %Y %H:%M") }}</td>
+      <td>{{ i.landlord_name }}<br><span class="small muted">{{ i.landlord_phone }}{% if i.landlord_phone and i.landlord_email %} · {% endif %}{{ i.landlord_email }}</span></td>
+      <td>{{ i.address }}<br><span class="small muted">{{ i.postcode }} · {{ service_labels.get(i.service_line, i.service_line) }}{% if i.bedrooms is not none %} · {{ i.bedrooms }} bed{% endif %}</span></td>
+      <td>{{ origin_labels.get(i.origin_system, i.origin_system) }}</td>
+      <td>{% if i.area %}{{ i.area.name }}{% else %}<span class="muted">Not covered</span>{% endif %}</td>
+      <td>{% if i.partner %}{{ i.partner.name }}{% elif i.area and i.area.is_hq %}Head office{% else %}<span class="muted">-</span>{% endif %}</td>
+      <td><span class="status status-{{ i.status }}">{{ i.status }}</span></td>
+      <td>{% if i.sent_to_ordris %}<span class="status status-sent">sent</span>{% elif i.status in ("instructed", "let") %}<span class="status status-failed">not sent</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="pager">
+    <a class="btn btn-ghost btn-sm" href="/admin/instructions?{{ qs_prev }}"{% if page <= 1 %} aria-disabled="true"{% endif %}>Newer</a>
+    <span class="help">Page {{ page }} of {{ pages }}</span>
+    <a class="btn btn-ghost btn-sm" href="/admin/instructions?{{ qs_next }}"{% if page >= pages %} aria-disabled="true"{% endif %}>Older</a>
+  </div>
+  {% else %}
+  <p class="muted">No instructions match.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -4,8 +4,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import smtplib
-from email.message import EmailMessage
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,7 +15,7 @@ from .. import config
 from ..auth import check_origin, client_ip, require_partner, throttle_check, throttle_hit
 from ..db import get_db
 from ..models import Area, Lead, Resource, User
-from ..services import content, kit, settings
+from ..services import content, kit, mail, ordris_listings, routing, settings
 from ..services.postcodes import extract_postcode, locate
 
 log = logging.getLogger("hnh.public")
@@ -27,12 +25,80 @@ router = APIRouter(dependencies=[Depends(check_origin)])
 KIND_SUBJECTS = {
     "rent_review": "Free rent review request",
     "sa_appraisal": "Short-let appraisal request",
+    "commercial_appraisal": "Commercial appraisal request",
     "contact": "General enquiry",
     "alert": "Property alert registration",
     "partner_application": "Local Partner application",
 }
 # Only these kinds (plus the plain "enquiry") can arrive from the public form; partner_request is the portal's.
 PUBLIC_KINDS = set(KIND_SUBJECTS) | {"enquiry"}
+
+# Commercial appraisal (plan, Phase 5): the extra fields the form carries, validated before the lead is stored.
+COMMERCIAL_USES = ("office", "retail", "industrial", "leisure", "mixed", "other")
+COMMERCIAL_LEASE_STATUSES = ("vacant", "let", "lease_ending")
+COMMERCIAL_SIZE_MAX = 5_000_000          # square feet
+COMMERCIAL_RENT_MAX = 50_000_000         # pounds a year
+# Questions landlords ask about commercial lettings: shown on /commercial and carried in its FAQPage markup.
+COMMERCIAL_FAQS = [
+    ("Does the Renters' Rights Act apply to my shop or office?",
+     "No. The Renters' Rights Act 2025 governs residential tenancies in England. A business lease is governed by the "
+     "Landlord and Tenant Act 1954, the lease itself and the general law of contract, which is why the paperwork and "
+     "the timetable are different."),
+    ("Do I have to protect a commercial tenant's deposit in a scheme?",
+     "No. Tenancy deposit protection applies to residential tenancies of homes (assured tenancies in England, occupation "
+     "contracts in Wales). A commercial rent deposit is held "
+     "under a rent deposit deed that says how much, where it sits, when it can be drawn on and when it is returned."),
+    ("What does contracting out of the 1954 Act mean?",
+     "By default a business tenant has the right to renew the lease when it ends. Landlord and tenant can agree to "
+     "exclude that right, but only by serving the statutory warning notice and the tenant making the declaration "
+     "before the lease is signed. Your solicitor handles the notice; we make sure it is in the heads of terms."),
+    ("Can I let a property with an EPC rating of F or G?",
+     "Not without a registered exemption. Non-domestic property needs an E or better to be let, and the government "
+     "has proposed tightening that to C and then B. We check the rating and the exemption position at the appraisal."),
+    ("Who pays the business rates?",
+     "The occupier, once let. Empty property is the owner's liability after the relief period, which is why a vacant "
+     "unit is appraised with the rates bill in mind."),
+]
+
+
+def _optional_int(value, field: str, high: int) -> int | None:
+    """An optional whole number from a form: digits in a string count ("£25,000 a year" reads as 25000); anything
+    else that is not blank is refused with the field named."""
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        number = int(value)
+    else:
+        digits = re.sub(r"[^0-9]", "", str(value))
+        if not digits:
+            raise HTTPException(status_code=422, detail=f"{field} must be a whole number")
+        number = int(digits[:12])
+    if not 0 <= number <= high:
+        raise HTTPException(status_code=422, detail=f"{field} must be between 0 and {high:,}")
+    return number
+
+
+def _commercial_fields(data: dict) -> dict:
+    """The commercial appraisal's own fields, validated and normalised for the lead's payload. property_use and
+    lease_status must be one of the listed values; size_sqft and asking_rent are optional whole numbers; the
+    business name is trimmed text. A bad value is a 422 naming the field, and nothing is stored."""
+    use = str(data.get("property_use") or "").strip().lower()
+    if use not in COMMERCIAL_USES:
+        raise HTTPException(status_code=422, detail=f"property_use must be one of {', '.join(COMMERCIAL_USES)}")
+    lease = re.sub(r"[\s-]+", "_", str(data.get("lease_status") or "").strip().lower())
+    if lease not in COMMERCIAL_LEASE_STATUSES:
+        raise HTTPException(status_code=422, detail=f"lease_status must be one of {', '.join(COMMERCIAL_LEASE_STATUSES)}")
+    fields = {
+        "business_name": " ".join(str(data.get("business_name") or "").split())[:120],
+        "property_use": use,
+        "size_sqft": _optional_int(data.get("size_sqft"), "size_sqft", COMMERCIAL_SIZE_MAX),
+        "lease_status": lease,
+        "asking_rent": _optional_int(data.get("asking_rent"), "asking_rent", COMMERCIAL_RENT_MAX),
+    }
+    raw_rent = str(data.get("asking_rent") or "").strip()
+    if fields["asking_rent"] is not None and raw_rent != str(fields["asking_rent"]):
+        fields["asking_rent_as_typed"] = raw_rent[:LEAD_MAX_VALUE]      # "£25,000 a year" keeps its wording
+    return fields
 
 # Lead intake limits: a lead is a short form, never a document.
 LEAD_MAX_BYTES = 32 * 1024          # whole request body
@@ -241,6 +307,8 @@ def jsonld_for(area: Area, page: dict, s: dict, url: str, page_key: str = "hub")
         crumbs.append(("Property management", f"{base}/areas/{area.slug}/lettings"))
     elif page_key == "shortlets":
         crumbs.append(("Short-let management", f"{base}/areas/{area.slug}/short-lets"))
+    elif page_key == "commercial":
+        crumbs.append(("Commercial lettings", f"{base}/areas/{area.slug}/commercial"))
     data.append({
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -323,17 +391,107 @@ def area_shortlets(slug: str, request: Request, db: Session = Depends(get_db)):
     return _area_page(request, db, slug, "shortlets")
 
 
+# ---- commercial lettings (plan, Phase 5) -----------------------------------
+def _commercial_contact(db: Session, area: Area | None, s: dict) -> dict:
+    """Who a commercial landlord talks to: the area's partner when they are active and cleared to take commercial
+    instructions, otherwise head office. Head office is also the answer with no area at all."""
+    hq = {"name": "The head office team", "first": kit.HQ_TEAM, "is_hq": True, "phone": s["hq_phone"],
+          "whatsapp": s["hq_whatsapp"], "whatsapp_display": s["hq_whatsapp_display"], "bio": kit.HQ_BIO}
+    if area is None:
+        return hq
+    partner = routing.partner_for(area, commercial=True)
+    if partner is None or kit.partner_pending(area):
+        return hq
+    ctx = kit.context_for(area, hq_whatsapp=s["hq_whatsapp"], hq_whatsapp_display=s["hq_whatsapp_display"],
+                          hq_phone=s["hq_phone"], base_url=config.BASE_URL)
+    return {"name": ctx["partner"], "first": ctx["partner_first"], "is_hq": False, "phone": ctx["phone"],
+            "whatsapp": area.contact_whatsapp(s["hq_whatsapp"]), "whatsapp_display": ctx["whatsapp_display"],
+            "bio": ctx["partner_bio"]}
+
+
+def _commercial_jsonld(area: Area | None, s: dict, url: str) -> str:
+    base = config.BASE_URL
+    crumbs = [("Home", base), ("Commercial lettings", f"{base}/commercial")]
+    if area is not None:
+        crumbs = [("Home", base), ("Areas", f"{base}/areas"), (area.name, f"{base}/areas/{area.slug}"),
+                  ("Commercial lettings", url)]
+    data = [
+        {
+            "@context": "https://schema.org",
+            "@type": "Service",
+            "name": f"Commercial property lettings{(' in ' + area.name) if area else ''}",
+            "serviceType": "Commercial property letting and management",
+            "url": url,
+            "areaServed": area.name if area else "England and Wales",
+            "provider": {"@type": "Organization", "@id": f"{base}/#organization", "name": "Hello New Home", "url": base},
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            "itemListElement": [{"@type": "ListItem", "position": i, "name": name, "item": href}
+                                for i, (name, href) in enumerate(crumbs, start=1)],
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
+                           for q, a in COMMERCIAL_FAQS],
+        },
+    ]
+    return _jsonld_dumps(data)
+
+
+def _commercial_page(request: Request, db: Session, area: Area | None) -> HTMLResponse:
+    s = settings.get_all(db)
+    url = f"{config.BASE_URL}/commercial" if area is None else f"{config.BASE_URL}/areas/{area.slug}/commercial"
+    where = f" in {area.name}" if area else ""
+    return render_public(request, "public/commercial.html", {
+        "db": db,
+        "area": area,
+        "contact": _commercial_contact(db, area, s),
+        "fees": settings.commercial_fees(s),
+        "fees_pending": settings.FEES_PENDING_SENTENCE,
+        "faqs": COMMERCIAL_FAQS,
+        "uses": COMMERCIAL_USES,
+        "title": f"Commercial property lettings{where} | Hello New Home",
+        "description": (f"Shops, offices, workshops and units let and managed{where}: appraisal, marketing, heads of terms, "
+                        "the lease by your solicitor, rent collection, management and rent reviews. Business leases, "
+                        "not residential tenancies."),
+        "canonical": url,
+        "jsonld": Markup(_commercial_jsonld(area, s, url)),
+        "noindex": bool(area) and area.status == "paused",
+        "nav_active": "landlords" if area is None else "areas",
+        "body_region": area.region if area else "",
+        "other_areas": [a for a in public_areas(db) if area is None or a.id != area.id],
+    })
+
+
+@router.get("/commercial", response_class=HTMLResponse)
+def commercial(request: Request, db: Session = Depends(get_db)):
+    return _commercial_page(request, db, None)
+
+
+@router.get("/areas/{slug}/commercial", response_class=HTMLResponse)
+def area_commercial(slug: str, request: Request, db: Session = Depends(get_db)):
+    return _commercial_page(request, db, _area_or_404(db, slug))
+
+
 def _area_page(request: Request, db: Session, slug: str, page: str) -> HTMLResponse:
     area = _area_or_404(db, slug)
     s = settings.get_all(db)
     pc = _carry_area(area_page_content(db, area, page), area.slug)
     suffix = {"hub": "", "lettings": "/lettings", "shortlets": "/short-lets"}[page]
     url = f"{config.BASE_URL}/areas/{area.slug}{suffix}"
+    # Homes to rent from Ordris (plan, Phase 6 C5): the lettings page only, and nothing is asked for or shown
+    # while Ordris is unconfigured, so the page is then exactly as it was. fetch_listings never raises.
+    listings = (ordris_listings.for_template(ordris_listings.fetch_listings(area.postcodes or []))
+                if page == "lettings" and ordris_listings.configured() else [])
     return render_public(request, "public/area.html", {
         "db": db,
         "area": area,
         "page": page,
         "pc": pc,
+        "listings": listings,
         "ctx": area_ctx(db, area),
         "neighbourhoods": area_neighbourhoods(area),
         "title": pc.get("meta_title") or f"Hello New Home {area.name}",
@@ -360,6 +518,8 @@ def areas_payload(db: Session) -> list[dict]:
             "phone": s["hq_phone"], "whatsapp": a.contact_whatsapp(s["hq_whatsapp"]),
             "whatsapp_display": a.contact_whatsapp_display(s["hq_whatsapp_display"]),
             "postcodes": a.postcodes or [], "covers": a.covers,
+            "pages": {"hub": f"/areas/{a.slug}", "lettings": f"/areas/{a.slug}/lettings",
+                      "short_lets": f"/areas/{a.slug}/short-lets", "commercial": f"/areas/{a.slug}/commercial"},
         })
     return data
 
@@ -438,9 +598,10 @@ def resource_file(resource_id: int, db: Session = Depends(get_db), user: User = 
 @router.get("/sitemap.xml", include_in_schema=False)
 def sitemap(db: Session = Depends(get_db)):
     from ..main import PAGES
-    urls = [f"{config.BASE_URL}{'' if p == '/' else p}" for p in PAGES]
+    urls = [f"{config.BASE_URL}{'' if p == '/' else p}" for p in PAGES] + [f"{config.BASE_URL}/commercial"]
     for a in public_areas(db):
-        urls += [f"{config.BASE_URL}/areas/{a.slug}", f"{config.BASE_URL}/areas/{a.slug}/lettings", f"{config.BASE_URL}/areas/{a.slug}/short-lets"]
+        urls += [f"{config.BASE_URL}/areas/{a.slug}", f"{config.BASE_URL}/areas/{a.slug}/lettings",
+                 f"{config.BASE_URL}/areas/{a.slug}/short-lets", f"{config.BASE_URL}/areas/{a.slug}/commercial"]
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     xml += "".join(f"  <url><loc>{escape(u)}</loc></url>\n" for u in urls) + "</urlset>\n"
     return Response(xml, media_type="application/xml")
@@ -542,12 +703,18 @@ async def api_lead(request: Request, db: Session = Depends(get_db)):
     name = str(data.get("name", ""))[:120]
     if not name and kind != "alert":
         raise HTTPException(status_code=422, detail="Name is required")
+    commercial = kind == routing.COMMERCIAL_LEAD_KIND
+    payload = _lead_payload(data)
+    if commercial:
+        payload.update(_commercial_fields(data))
     lead = Lead(
         kind=kind, name=name, phone=str(data.get("phone", ""))[:40], email=str(data.get("email", ""))[:200],
         postcode=(loc.outward if loc else postcode[:12]), address=str(data.get("address", ""))[:300],
         region=(loc.region if loc else ""), area_id=area.id if area else None,
-        partner_id=(area.partner_id if area and not area.is_hq else None),
-        payload=_lead_payload(data),
+        # The one routing rule (services.routing): a head-office area has no partner, and a commercial appraisal stays
+        # with head office unless the area's partner is cleared to take it.
+        partner_id=routing.partner_id_for(area, commercial=commercial),
+        payload=payload,
         source_page=str(data.get("_page", ""))[:200],
     )
     db.add(lead)
@@ -563,25 +730,18 @@ async def api_lead(request: Request, db: Session = Depends(get_db)):
 
 
 def _notify(lead: Lead, area: Area | None, s: dict) -> None:
-    if not config.SMTP_HOST:
+    if not mail.configured():
         log.info("lead %s (%s) stored; SMTP not configured", lead.id, lead.kind)
         return
-    try:
-        msg = EmailMessage()
-        msg["Subject"] = f"[HNH lead] {KIND_SUBJECTS.get(lead.kind, lead.kind)}: {lead.name} ({lead.postcode or 'no postcode'})"
-        msg["From"] = config.SMTP_FROM
-        to = [config.LEAD_NOTIFY_TO]
-        if area and area.partner and area.partner.email and area.partner.status == "active":
-            to.append(area.partner.email)
-        msg["To"] = ", ".join(to)
-        lines = [f"{k}: {v}" for k, v in (lead.payload or {}).items()]
-        lines.append(f"Area: {area.name if area else 'not covered'} ({lead.region})")
-        lines.append(f"Admin: {config.BASE_URL}/admin/leads/{lead.id}")
-        msg.set_content("\n".join(lines))
-        with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as smtp:
-            smtp.starttls()
-            if config.SMTP_USER:
-                smtp.login(config.SMTP_USER, config.SMTP_PASSWORD)
-            smtp.send_message(msg)
-    except Exception as e:  # noqa: BLE001 - never lose a lead over email
-        log.warning("lead %s stored but notification failed: %s", lead.id, e)
+    commercial = routing.is_commercial_lead(lead)
+    if commercial:
+        # The kind label says commercial; the subject never carries the landlord's or the business's name.
+        subject = f"[HNH lead] {KIND_SUBJECTS[lead.kind]} ({lead.postcode or 'no postcode'})"
+    else:
+        subject = f"[HNH lead] {KIND_SUBJECTS.get(lead.kind, lead.kind)}: {lead.name} ({lead.postcode or 'no postcode'})"
+    lines = [f"{k}: {v}" for k, v in (lead.payload or {}).items()]
+    lines.append(f"Area: {area.name if area else 'not covered'} ({lead.region})")
+    lines.append(f"Routed to: {lead.partner.name if lead.partner else 'head office'}")
+    lines.append(f"Admin: {config.BASE_URL}/admin/leads/{lead.id}")
+    if not mail.send(subject, "\n".join(lines), mail.notify_recipients(area, commercial=commercial)):
+        log.warning("lead %s stored but the notification was not sent", lead.id)
