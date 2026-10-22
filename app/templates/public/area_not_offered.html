@@ -1,0 +1,32 @@
+{% extends "public/base.html" %}
+{# An area service page for a service the area's partner does not offer (services.routing): kept for old links,
+   marked noindex, and left out of the sitemap and the area's navigation. Head office is the contact. #}
+{% set wa_text = "Hi, I'd like to talk about " ~ info.service ~ " for my property in " ~ area.name ~ "." %}
+{% block content %}
+<section class="band-dark page-head">
+  <div class="wrap">
+    <p class="breadcrumb" style="color:#CFCBD1"><a href="/areas">Areas</a> · <a href="/areas/{{ area.slug }}">{{ area.name }}</a> · {{ info.title }}</p>
+    <span class="eyebrow">{{ area.label }} · {{ area.name }}</span>
+    <h1>{{ info.title }} is not offered locally in {{ area.name }} yet</h1>
+    <p class="lede">Hello New Home {{ area.name }} does not offer {{ info.service }} yet. Our head office team can talk it through with you and tell you what we can do for your property.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="{{ cta_href }}">{{ info.cta }}</a>
+      <a class="btn btn-wa btn-lg" href="https://wa.me/{{ s.hq_whatsapp }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">WhatsApp head office</a>
+    </div>
+    <p class="small mt-1" style="color:#CFCBD1">Or call head office on <a href="tel:{{ s.hq_phone | replace(' ', '') }}">{{ s.hq_phone }}</a>.</p>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <nav class="area-subnav" aria-label="{{ area.name }} pages">
+      <a href="/areas/{{ area.slug }}">Letting agents in {{ area.name }}</a>
+      {% for path, key, label in service_pages %}{% if offered[key] %}<a href="/areas/{{ area.slug }}/{{ path }}">{{ label }}</a>{% endif %}
+      {% endfor %}
+      <a href="/areas/{{ area.slug }}/commercial">Commercial lettings</a>
+    </nav>
+    <p>Everything else Hello New Home {{ area.name }} does is on the <a href="/areas/{{ area.slug }}">{{ area.name }} page</a>.</p>
+    {% if listings %}{% include "public/partials/listings.html" %}{% endif %}
+  </div>
+</section>
+{% endblock %}

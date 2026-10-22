@@ -57,7 +57,7 @@
       {% if inst.sent_to_ordris %}
       <div class="ordris-box is-sent">In Ordris: landlord client <code>{{ inst.ordris_landlord_client_id or "-" }}</code>, property <code>{{ inst.ordris_property_id or "-" }}</code>{% if inst.ordris_tenancy_id %}, tenancy <code>{{ inst.ordris_tenancy_id }}</code>{% endif %}.</div>
       {% elif inst.status in ("instructed", "let") %}
-      <div class="ordris-box is-waiting">Not in Ordris yet.{% if not ordris_configured %} Ordris is not configured on this service (ORDRIS_BASE_URL, ORDRIS_PARTNER_TOKEN_HNH).{% endif %}
+      <div class="ordris-box is-waiting">Not in Ordris yet.{% if not ordris_enabled %} Sending to Ordris is switched off in <a href="/admin/settings">Settings</a>; switch it back on, then resend.{% endif %}{% if not ordris_configured %} Ordris is not configured on this service (ORDRIS_BASE_URL, ORDRIS_PARTNER_TOKEN_HNH).{% endif %}
         {% if can_send %}<form method="post" action="/admin/instructions/{{ inst.id }}/send"><button class="btn btn-primary btn-sm" type="submit">Send to Ordris</button></form>{% endif %}</div>
       {% else %}
       <p class="muted">The landlord and property go to Ordris when the status becomes instructed.</p>

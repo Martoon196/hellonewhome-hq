@@ -15,7 +15,7 @@ from .. import config
 from ..auth import check_origin, client_ip, require_partner, throttle_check, throttle_hit
 from ..db import get_db
 from ..models import Area, Lead, Resource, User
-from ..services import content, kit, mail, ordris_listings, routing, settings
+from ..services import content, kit, mail, ordris_listings, routing, settings, vat
 from ..services.postcodes import extract_postcode, locate
 
 log = logging.getLogger("hnh.public")
@@ -129,7 +129,12 @@ def render_public(request: Request, template: str, ctx: dict, status_code: int =
         "body_region": ctx.get("body_region", ""),
     }
     base.update(ctx)
-    return templates.TemplateResponse(request, template, base, status_code=status_code)
+    response = templates.TemplateResponse(request, template, base, status_code=status_code)
+    if settings.vat_registered(base["s"]):
+        # The "no VAT" claims live in page fragments, area content and seeded area facts as well as in templates;
+        # once the company is VAT-registered every one of them is rewritten as VAT-inclusive (services.vat).
+        return HTMLResponse(vat.wording(response.body.decode("utf-8"), True), status_code=response.status_code)
+    return response
 
 
 def area_cards_html(request: Request, db: Session) -> str:
@@ -460,6 +465,9 @@ def _commercial_page(request: Request, db: Session, area: Area | None) -> HTMLRe
         "canonical": url,
         "jsonld": Markup(_commercial_jsonld(area, s, url)),
         "noindex": bool(area) and area.status == "paused",
+        "offered": offered_pages(area) if area else {},
+        # The footer's VAT sentence beside fees quoted plus VAT: no VAT on residential fees, commercial plus VAT.
+        "commercial_page": True,
         "nav_active": "landlords" if area is None else "areas",
         "body_region": area.region if area else "",
         "other_areas": [a for a in public_areas(db) if area is None or a.id != area.id],
@@ -476,16 +484,64 @@ def area_commercial(slug: str, request: Request, db: Session = Depends(get_db)):
     return _commercial_page(request, db, _area_or_404(db, slug))
 
 
+# The service pages of an area (public path, page key, nav label), in the order the area's sub-navigation lists them.
+AREA_SERVICE_PAGES = (("lettings", "lettings", "Property management"), ("short-lets", "shortlets", "Short-let management"))
+# What the "not offered locally yet" page says for each service page: the service in a sentence, and where head office
+# takes the enquiry instead (the form posts to /api/lead, which routes it to head office for that service).
+NOT_OFFERED = {
+    "lettings": {"service": "full property management", "title": "Property management",
+                 "cta": "Ask head office for a free rent review", "href": "/valuation?area={slug}"},
+    "shortlets": {"service": "short-let management", "title": "Short-let management",
+                  "cta": "Ask head office for a short-let appraisal", "href": "/serviced-accommodation?area={slug}#appraisal"},
+}
+
+
+def offered_pages(area: Area) -> dict[str, bool]:
+    """Which of the area's service pages are live (services.routing.area_page_offered): the sub-navigation, the
+    sitemap and areas.js list only these; the others answer with the "not offered locally yet" page."""
+    return {page: routing.area_page_offered(area, page) for _, page, _ in AREA_SERVICE_PAGES}
+
+
+def _area_listings(area: Area, page: str) -> list[dict]:
+    """Homes to rent from Ordris (plan, Phase 6 C5): the lettings page only, and nothing is asked for or shown while
+    Ordris is unconfigured, so the page is then exactly as it was. fetch_listings never raises."""
+    if page != "lettings" or not ordris_listings.configured():
+        return []
+    return ordris_listings.for_template(ordris_listings.fetch_listings(area.postcodes or []))
+
+
+def _not_offered_page(request: Request, db: Session, area: Area, page: str) -> HTMLResponse:
+    """An area page for a service the area's partner does not offer. Old links still work (200, never a 404), but the
+    page says plainly that the service is not offered locally yet, offers head office instead, and is kept out of
+    search results, the sitemap and the area's navigation. The homes to rent stay on the lettings page: they are for
+    tenants, and a tenant find is any partner's."""
+    info = NOT_OFFERED[page]
+    return render_public(request, "public/area_not_offered.html", {
+        "db": db,
+        "area": area,
+        "page": page,
+        "info": info,
+        "listings": _area_listings(area, page),
+        "cta_href": info["href"].format(slug=area.slug),
+        "offered": offered_pages(area),
+        "service_pages": AREA_SERVICE_PAGES,
+        "title": f"{info['title']} in {area.name}: not offered locally yet | Hello New Home",
+        "description": f"Hello New Home {area.name} does not offer {info['service']} locally yet. Head office can help.",
+        "noindex": True,
+        "nav_active": "areas",
+        "body_region": area.region,
+    })
+
+
 def _area_page(request: Request, db: Session, slug: str, page: str) -> HTMLResponse:
     area = _area_or_404(db, slug)
+    if not routing.area_page_offered(area, page):
+        return _not_offered_page(request, db, area, page)
     s = settings.get_all(db)
     pc = _carry_area(area_page_content(db, area, page), area.slug)
     suffix = {"hub": "", "lettings": "/lettings", "shortlets": "/short-lets"}[page]
     url = f"{config.BASE_URL}/areas/{area.slug}{suffix}"
-    # Homes to rent from Ordris (plan, Phase 6 C5): the lettings page only, and nothing is asked for or shown
-    # while Ordris is unconfigured, so the page is then exactly as it was. fetch_listings never raises.
-    listings = (ordris_listings.for_template(ordris_listings.fetch_listings(area.postcodes or []))
-                if page == "lettings" and ordris_listings.configured() else [])
+    listings = _area_listings(area, page)
     return render_public(request, "public/area.html", {
         "db": db,
         "area": area,
@@ -493,6 +549,8 @@ def _area_page(request: Request, db: Session, slug: str, page: str) -> HTMLRespo
         "pc": pc,
         "listings": listings,
         "ctx": area_ctx(db, area),
+        "offered": offered_pages(area),
+        "offers_management": routing.area_offers(area, routing.RESIDENTIAL_MANAGEMENT),
         "neighbourhoods": area_neighbourhoods(area),
         "title": pc.get("meta_title") or f"Hello New Home {area.name}",
         "description": pc.get("meta_description", ""),
@@ -518,8 +576,14 @@ def areas_payload(db: Session) -> list[dict]:
             "phone": s["hq_phone"], "whatsapp": a.contact_whatsapp(s["hq_whatsapp"]),
             "whatsapp_display": a.contact_whatsapp_display(s["hq_whatsapp_display"]),
             "postcodes": a.postcodes or [], "covers": a.covers,
-            "pages": {"hub": f"/areas/{a.slug}", "lettings": f"/areas/{a.slug}/lettings",
-                      "short_lets": f"/areas/{a.slug}/short-lets", "commercial": f"/areas/{a.slug}/commercial"},
+            # A service page the area's partner does not offer is left out (it still answers, marked noindex).
+            "pages": {key: href for key, href, live in (
+                ("hub", f"/areas/{a.slug}", True),
+                ("lettings", f"/areas/{a.slug}/lettings", routing.area_page_offered(a, "lettings")),
+                ("short_lets", f"/areas/{a.slug}/short-lets", routing.area_page_offered(a, "shortlets")),
+                ("commercial", f"/areas/{a.slug}/commercial", True)) if live},
+            # What the area offers locally; a form can say an enquiry for anything else goes to head office.
+            "services": {service: routing.area_offers(a, service) for service in routing.SERVICES},
         })
     return data
 
@@ -600,8 +664,10 @@ def sitemap(db: Session = Depends(get_db)):
     from ..main import PAGES
     urls = [f"{config.BASE_URL}{'' if p == '/' else p}" for p in PAGES] + [f"{config.BASE_URL}/commercial"]
     for a in public_areas(db):
-        urls += [f"{config.BASE_URL}/areas/{a.slug}", f"{config.BASE_URL}/areas/{a.slug}/lettings",
-                 f"{config.BASE_URL}/areas/{a.slug}/short-lets", f"{config.BASE_URL}/areas/{a.slug}/commercial"]
+        live = offered_pages(a)
+        urls += ([f"{config.BASE_URL}/areas/{a.slug}"]
+                 + [f"{config.BASE_URL}/areas/{a.slug}/{path}" for path, page, _ in AREA_SERVICE_PAGES if live[page]]
+                 + [f"{config.BASE_URL}/areas/{a.slug}/commercial"])
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     xml += "".join(f"  <url><loc>{escape(u)}</loc></url>\n" for u in urls) + "</urlset>\n"
     return Response(xml, media_type="application/xml")
@@ -707,13 +773,16 @@ async def api_lead(request: Request, db: Session = Depends(get_db)):
     payload = _lead_payload(data)
     if commercial:
         payload.update(_commercial_fields(data))
+    # The one routing rule (services.routing): a head-office area has no partner, and an enquiry for a service the
+    # area's partner does not offer (a commercial appraisal without clearance, management they do not take on) stays
+    # with head office, with a note on the lead saying why.
+    service = routing.lead_service(kind, payload)
+    routed = routing.routing_note(area, service=service)
     lead = Lead(
         kind=kind, name=name, phone=str(data.get("phone", ""))[:40], email=str(data.get("email", ""))[:200],
         postcode=(loc.outward if loc else postcode[:12]), address=str(data.get("address", ""))[:300],
         region=(loc.region if loc else ""), area_id=area.id if area else None,
-        # The one routing rule (services.routing): a head-office area has no partner, and a commercial appraisal stays
-        # with head office unless the area's partner is cleared to take it.
-        partner_id=routing.partner_id_for(area, commercial=commercial),
+        partner_id=routing.partner_id_for(area, service=service), service=service, notes=routed,
         payload=payload,
         source_page=str(data.get("_page", ""))[:200],
     )
@@ -722,10 +791,12 @@ async def api_lead(request: Request, db: Session = Depends(get_db)):
     throttle_hit(rate_key)
     s = settings.get_all(db)
     _notify(lead, area, s)
+    # The answer names whoever the lead went to: head office, not the area's partner, when it was routed past them.
     return {
         "ok": True, "id": lead.id,
-        "area": None if not area else {"slug": area.slug, "name": area.name, "partner": kit.partner_name(area),
-                                       "whatsapp": area.contact_whatsapp(s["hq_whatsapp"])},
+        "area": None if not area else {"slug": area.slug, "name": area.name,
+                                       "partner": "The head office team" if routed else kit.partner_name(area),
+                                       "whatsapp": s["hq_whatsapp"] if routed else area.contact_whatsapp(s["hq_whatsapp"])},
     }
 
 
@@ -742,6 +813,8 @@ def _notify(lead: Lead, area: Area | None, s: dict) -> None:
     lines = [f"{k}: {v}" for k, v in (lead.payload or {}).items()]
     lines.append(f"Area: {area.name if area else 'not covered'} ({lead.region})")
     lines.append(f"Routed to: {lead.partner.name if lead.partner else 'head office'}")
+    if lead.partner is None and lead.notes:
+        lines.append(lead.notes)
     lines.append(f"Admin: {config.BASE_URL}/admin/leads/{lead.id}")
-    if not mail.send(subject, "\n".join(lines), mail.notify_recipients(area, commercial=commercial)):
+    if not mail.send(subject, "\n".join(lines), mail.notify_recipients(area, service=lead.service)):
         log.warning("lead %s stored but the notification was not sent", lead.id)

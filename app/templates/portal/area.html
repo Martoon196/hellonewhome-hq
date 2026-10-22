@@ -10,6 +10,8 @@
   .req-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
   .req-list li { border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; font-size: .92rem; }
   .req-list .when { color: var(--muted); font-size: .82rem; }
+  .svc-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .45rem; font-size: .95rem; }
+  .svc-list .status { min-width: 3.2em; text-align: center; margin-right: .4rem; }
 </style>{% endblock %}
 {% block content %}
 <div class="page-title">
@@ -29,8 +31,8 @@
   </dl>
   <div class="area-links">
     <a class="btn btn-ghost btn-sm" href="{{ c.hub }}" target="_blank" rel="noopener">Area page</a>
-    <a class="btn btn-ghost btn-sm" href="{{ c.hub }}/lettings" target="_blank" rel="noopener">Lettings page</a>
-    <a class="btn btn-ghost btn-sm" href="{{ c.hub }}/short-lets" target="_blank" rel="noopener">Short-lets page</a>
+    {% if c.pages.lettings %}<a class="btn btn-ghost btn-sm" href="{{ c.hub }}/lettings" target="_blank" rel="noopener">Lettings page</a>{% endif %}
+    {% if c.pages.shortlets %}<a class="btn btn-ghost btn-sm" href="{{ c.hub }}/short-lets" target="_blank" rel="noopener">Short-lets page</a>{% endif %}
     <a class="btn btn-ghost btn-sm" href="{{ c.maps_url }}" target="_blank" rel="noopener">{{ a.name }} on Google Maps</a>
   </div>
   {% if a.status != "active" %}<p class="help">This area is not live yet. The pages open, but they are marked as opening soon until head office switches the area on.</p>{% endif %}
@@ -38,6 +40,16 @@
 {% else %}
 <section class="panel"><p class="muted">No area is attached to your account yet. Head office will link it when your patch is agreed.</p></section>
 {% endfor %}
+
+{% if services %}
+<section class="panel area-card" id="services">
+  <h2>Services you offer</h2>
+  <p class="help">Head office sets these. An enquiry for a service that is off goes to head office instead of you, and your area pages say it is not offered locally yet. To change one, ask head office using the form below.</p>
+  <ul class="svc-list">
+    {% for label, on in services %}<li><span class="status status-{{ 'active' if on else 'paused' }}">{{ "On" if on else "Off" }}</span> {{ label }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% if cards %}
 <div class="two-col">

@@ -9,7 +9,7 @@ from . import config
 from .auth import API_TOKEN_MIN_LENGTH, ensure_api_client, generate_password, hash_password, normalise_email
 from .db import SessionLocal
 from .migrations import run_migrations
-from .models import Area, Partner, Resource, User
+from .models import Area, AuditLog, Partner, Resource, User
 from .services import content, settings
 
 GROUPHQ_CLIENT = "grouphq"
@@ -27,6 +27,23 @@ PARTNER_CLIENTS = (
 
 AREA_SEED_FIELDS = ("name", "region", "covers", "postcodes", "places", "demand", "licensing", "shortlet",
                     "rent_avg", "rent_change", "rent_note")
+
+
+def _approve_commercial_fees(db: Session) -> None:
+    """The founder approved the commercial fee sheet on 22 October 2026: tick the confirmed box, and quote the
+    fees plus VAT. The VAT note is replaced only while it still reads the old default, never an edited one."""
+    settings.put(db, "fees_commercial_confirmed", True)
+    stored = settings.get(db, "fees_commercial")
+    if isinstance(stored, dict) and stored.get("vat_note") == settings.OLD_COMMERCIAL_VAT_NOTE:
+        settings.put(db, "fees_commercial", dict(stored, vat_note=settings.DEFAULTS["fees_commercial"]["vat_note"]))
+
+
+# One-time changes to stored settings, applied in order and recorded in seed_revisions under "settings:<name>"
+# exactly as area rows and resource pages are: each runs once on every database, so a later change made in
+# Admin -> Settings (unticking a box, say) survives every deploy. Bump the number to run a changed one again.
+SETTINGS_REVISIONS = (
+    ("commercial-fees-approved", 1, _approve_commercial_fees),
+)
 
 
 def _real(value) -> str:
@@ -94,6 +111,13 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                     "api_client": None, "api_clients": {}}
     try:
         settings.ensure_defaults(db)
+        stored_revisions = settings.get(db, "seed_revisions")
+        applied: dict = dict(stored_revisions) if isinstance(stored_revisions, dict) else {}
+        for name, rev, apply in SETTINGS_REVISIONS:
+            tag = f"settings:{name}"
+            if rev > int(applied.get(tag, 0)):
+                apply(db)
+                applied[tag] = rev
         if config.FEES_CONFIRMED and not settings.get(db, "fees_confirmed"):
             settings.put(db, "fees_confirmed", True)
         if config.FEES_COMMERCIAL_CONFIRMED and not settings.get(db, "fees_commercial_confirmed"):
@@ -101,8 +125,6 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
 
         # Areas: new slugs are inserted; existing rows are refreshed only when the seed row carries a higher
         # "revision" than the one recorded in the seed_revisions setting (see _refresh_area).
-        stored_revisions = settings.get(db, "seed_revisions")
-        applied: dict = dict(stored_revisions) if isinstance(stored_revisions, dict) else {}
         existing = {a.slug: a for a in db.query(Area).all()}
         for i, raw in enumerate(content.areas_seed()):
             rev = int(raw.get("revision") or 0)
@@ -163,7 +185,9 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
         # Seeded resource pages that carry a "key" and a "revision" (the commercial training page first): inserted on a
         # live database that already has its library, and refreshed in place whenever the seed's revision is higher
         # than the one recorded in seed_revisions under "resource:<key>", exactly as area rows are. The row is found
-        # by its title; between bumps, head office's edits to it survive every deploy.
+        # by its title; between bumps, head office's edits to it survive every deploy. A bump replaces the page, so
+        # the text it replaced is kept whole in the audit log: an edit head office made since the last bump can be
+        # copied back from there.
         for i, item in enumerate(content.resources_seed()):
             key, rev = item.get("key"), int(item.get("revision") or 0)
             if not key or not rev:
@@ -180,11 +204,15 @@ def seed(db: Session | None = None, *, quiet: bool = False) -> dict:
                 report["resources"] += 1
             else:
                 report["refreshed"] += 1
+            body = _resource_body(item)
+            if res.id is not None and (res.body or "") and res.body != body:
+                db.add(AuditLog(user_id=None, action="seed.resource_refresh", target=f"resource:{res.id}",
+                                detail=f"{res.title}: replaced by seed revision {rev}. The text it replaced:\n{res.body}"))
             res.category = item.get("category", "General")
             res.description = item.get("description", "")
             res.kind = item.get("kind", "page")
             res.url = item.get("url", "")
-            res.body = _resource_body(item)
+            res.body = body
             res.is_placeholder = bool(item.get("placeholder", False))
             res.visibility = "region" if region else "all"
             res.region = region

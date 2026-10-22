@@ -45,8 +45,8 @@
   <div class="wrap">
     <nav class="area-subnav" aria-label="{{ area.name }} pages">
       <a href="/areas/{{ area.slug }}">Letting agents in {{ area.name }}</a>
-      <a href="/areas/{{ area.slug }}/lettings">Property management</a>
-      <a href="/areas/{{ area.slug }}/short-lets">Short-let management</a>
+      {% if offered.lettings %}<a href="/areas/{{ area.slug }}/lettings">Property management</a>{% endif %}
+      {% if offered.shortlets %}<a href="/areas/{{ area.slug }}/short-lets">Short-let management</a>{% endif %}
       <a href="/areas/{{ area.slug }}/commercial" class="is-active">Commercial lettings</a>
     </nav>
     <p>{{ contact.is_hq and "Head office appraises and lets commercial property in " ~ area.name ~ " directly, with " ~ (area.partner_first if not area.is_hq and area.partner and area.partner.status == "active" else "the local team") ~ " on hand for viewings." or contact.first ~ " is cleared to take commercial instructions in " ~ area.name ~ ", with the lease work, rent collection and management run from head office." }}</p>
@@ -91,15 +91,15 @@
     <div>
       <div class="card">
         <h3>Fees</h3>
-        {% if fees %}
+        {% if fees %}{# every figure carries the VAT note, so a later VAT registration changes nothing a customer was told #}
         <div class="table-wrap fees mt-1">
           <table>
             <thead><tr><th>Service</th><th>Fee</th></tr></thead>
             <tbody>
-              <tr><td>Letting</td><td>{{ fees.letting_pct }} {{ fees.letting_basis }}, minimum {{ fees.letting_minimum }}</td></tr>
-              <tr><td>Management</td><td>{{ fees.management_pct }} {{ fees.management_basis }}</td></tr>
-              <tr><td>Lease renewal or rent review</td><td>{{ fees.lease_renewal }}</td></tr>
-              <tr><td>Schedule of condition</td><td>{{ fees.schedule_of_condition }}</td></tr>
+              <tr><td>Letting</td><td>{{ fees.letting_pct }} {{ fees.letting_basis }} {{ fees.vat_note }}, minimum {{ fees.letting_minimum }} {{ fees.vat_note }}</td></tr>
+              <tr><td>Management</td><td>{{ fees.management_pct }} {{ fees.management_basis }} {{ fees.vat_note }}</td></tr>
+              <tr><td>Lease renewal or rent review</td><td>{{ fees.lease_renewal }} {{ fees.vat_note }}</td></tr>
+              <tr><td>Schedule of condition</td><td>{{ fees.schedule_of_condition }} {{ fees.vat_note }}</td></tr>
             </tbody>
           </table>
         </div>

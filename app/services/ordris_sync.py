@@ -23,7 +23,10 @@ partnerAuth) while the plan names X-Service-Token; the value is the same secret 
 Rules: the secret is read from config at send time and never stored in the outbox row, logged, or put in an
 error message; errors recorded on the row carry the status code and Ordris's short reason, never the request
 headers. With ORDRIS_BASE_URL or ORDRIS_PARTNER_TOKEN_HNH unset the sender is switched off: the row waits as
-pending with a note saying so, and nothing is attempted. Network and HTTP errors never reach the caller.
+pending with a note saying so, and nothing is attempted. Head office can also switch sending off without touching
+the environment ("Send instructed properties to Ordris" in Admin -> Settings, the ordris_sync_enabled setting):
+while it is off every row waits as pending in the same way, no attempt is counted, and once it is back on the
+Resend button or scripts/outbox_retry.py sends what waited. Network and HTTP errors never reach the caller.
 """
 from __future__ import annotations
 
@@ -35,6 +38,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..models import Instruction, Outbox, now
+from . import settings
 
 log = logging.getLogger("hnh.ordris")
 
@@ -45,11 +49,18 @@ TIMEOUT = 15.0
 USER_AGENT = "HelloNewHomeHQ/1.0 (+https://hellonewhome.co.uk)"
 MAX_ATTEMPTS = 8                  # the retry command stops trying after this many failures; Resend ignores it
 NOT_CONFIGURED = "Ordris is not configured: set ORDRIS_BASE_URL and ORDRIS_PARTNER_TOKEN_HNH, then resend."
+SWITCHED_OFF = ("Sending to Ordris is switched off in Admin, Settings: the message waits here. Switch it back on, then "
+                "resend.")
 ERROR_LIMIT = 500                 # characters of error kept on the row
 
 
 def configured() -> bool:
     return bool(config.ORDRIS_BASE_URL and config.ORDRIS_PARTNER_TOKEN_HNH)
+
+
+def enabled(db: Session) -> bool:
+    """Whether head office has sending to Ordris switched on (Admin -> Settings; on unless switched off)."""
+    return bool(settings.get(db, "ordris_sync_enabled"))
 
 
 def target_for(instruction: Instruction) -> str:
@@ -168,6 +179,12 @@ def deliver(db: Session, row: Outbox) -> tuple[bool, str]:
         db.add(row)
         db.commit()
         return False, row.last_error
+    if not enabled(db):
+        row.state, row.last_error = "pending", SWITCHED_OFF
+        db.add(row)
+        db.commit()
+        log.info("ordris: instruction %s not sent; sending is switched off in the settings", instruction.ref)
+        return False, SWITCHED_OFF
     if not configured():
         row.state, row.last_error = "pending", NOT_CONFIGURED
         db.add(row)
@@ -249,7 +266,10 @@ def retryable(db: Session, *, limit: int = 50, include_exhausted: bool = False) 
 
 def retry_pending(db: Session, *, limit: int = 50) -> list[tuple[Outbox, bool, str]]:
     """Send every pending or failed row that has attempts left (scripts/outbox_retry.py). Returns what happened
-    to each row. With Ordris unconfigured nothing is attempted and every row keeps its place in the queue."""
+    to each row. With Ordris unconfigured, or sending switched off in the settings, nothing is attempted and every
+    row keeps its place in the queue. Switched off, the rows are not even touched, so a failed one keeps its error."""
+    if not enabled(db):
+        return [(row, False, SWITCHED_OFF) for row in retryable(db, limit=limit)]
     results = []
     for row in retryable(db, limit=limit):
         sent, message = deliver(db, row)

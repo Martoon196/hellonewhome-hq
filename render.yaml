@@ -75,5 +75,6 @@ services:
         value: "1"
       - key: FEES_CONFIRMED
         value: "1"
-      # FEES_COMMERCIAL_CONFIRMED is deliberately absent: the commercial fee sheet is a proposal and stays off the
-      # public pages until the founder confirms it (Admin -> Settings, or add the variable with value "1").
+      # FEES_COMMERCIAL_CONFIRMED is deliberately absent: the founder approved the commercial fee sheet on 22 October
+      # 2026 and a one-time seed revision ticked it in Admin -> Settings, so unticking it there sticks. Add the variable
+      # with value "1" only to force it confirmed on every boot.

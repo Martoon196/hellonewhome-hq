@@ -88,6 +88,8 @@ def partner_record(partner: Partner) -> dict:
         "tier": partner.tier, "status": partner.status,
         "franchise": {"fee_waived": partner.franchise_fee_waived, "reason": partner.franchise_note or ""},
         "commercial_enabled": bool(partner.commercial_enabled),
+        # What the partner offers in their areas (services.routing); commercial_letting is commercial_enabled.
+        "services": {service: routing.partner_offers(partner, service) for service in routing.SERVICES},
         "areas": [_area_record(a) for a in sorted(partner.areas, key=lambda a: (a.sort, a.id))],
         "user_id": login.id if login else None,
         "login": None if login is None else {
@@ -168,6 +170,26 @@ def _postcode_list(value, field: str) -> list[str]:
     if err:
         raise _invalid(err, field)
     return codes
+
+
+def _services(data: dict) -> dict[str, bool] | None:
+    """{column: on} for the service switches the body sets; None when it carries no services object. Only the
+    switches head office sets per partner are accepted (residential_management, hmo_management,
+    shortlet_management, commercial_management); commercial letting stays head office's decision."""
+    raw = data.get("services")
+    if raw is None:
+        return None
+    allowed = ", ".join(routing.SWITCHED_SERVICES)
+    if not isinstance(raw, dict):
+        raise _invalid(f"services must be an object with any of {allowed} set to true or false.", "services")
+    out: dict[str, bool] = {}
+    for key, value in raw.items():
+        if key not in routing.SWITCHED_SERVICES:
+            raise _invalid(f"services.{key} is not a service this API sets; send any of {allowed}.", f"services.{key}")
+        if not isinstance(value, bool):
+            raise _invalid(f"services.{key} must be true or false.", f"services.{key}")
+        out[routing.SERVICE_FLAGS[key]] = value
+    return out
 
 
 def _franchise(data: dict) -> tuple[bool, str] | None:
@@ -324,6 +346,7 @@ async def upsert_partner(request: Request, db: Session = Depends(get_db),
     status = _choice(data, "status", API_PARTNER_STATUSES, required=True)
     create_login = _flag(data, "create_login")
     franchise = _franchise(data)
+    services = _services(data)
     area_spec = _area_spec(data)
     whatsapp = None
     if whatsapp_raw is not None:
@@ -361,6 +384,12 @@ async def upsert_partner(request: Request, db: Session = Depends(get_db),
         partner.whatsapp_display = whatsapp_display
     if franchise is not None:
         partner.franchise_fee_waived, partner.franchise_note = franchise
+    # The services are the caller's when the call creates the partner; afterwards they are head office's (the admin
+    # partner page), so an update leaves them alone and the answer's partner.services says what is set.
+    services_applied = created and services is not None
+    if services_applied:
+        for column, value in services.items():
+            setattr(partner, column, value)
     db.add(partner)
     db.flush()
 
@@ -379,7 +408,10 @@ async def upsert_partner(request: Request, db: Session = Depends(get_db),
           f"via api client {client.name}: {partner.name}; status {partner.status}; tier {partner.tier}; "
           f"area {(area.slug + (' (created)' if area_created else '')) if area else 'none'}; "
           f"login {'created' if one_time_password else ('present' if login else 'none')}; "
-          f"franchise {'fee waived' if partner.franchise_fee_waived else ('fee payable' if partner.franchise_fee_waived is False else 'not recorded')}")
+          f"franchise {'fee waived' if partner.franchise_fee_waived else ('fee payable' if partner.franchise_fee_waived is False else 'not recorded')}"
+          + ("; services " + ", ".join(f"{routing.SERVICE_LABELS[s]} {'on' if routing.partner_offers(partner, s) else 'off'}"
+                                       for s in routing.SWITCHED_SERVICES) if services_applied else "")
+          + ("; services sent on an update were left as head office set them" if services is not None and not created else ""))
     db.commit()
     db.refresh(partner)
     return _reply({
@@ -600,9 +632,14 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
                        headers={"Retry-After": str(PROPERTIES_WINDOW)})
     location = prop.pop("location")
     area = location.area
-    # The one routing rule: a head-office area has no partner, and a commercial property stays with head office
-    # unless the area's partner is cleared to take it (services.routing).
-    partner_id = routing.partner_id_for(area, commercial=prop["service_line"] == routing.COMMERCIAL_SERVICE_LINE)
+    # The one routing rule: a head-office area has no partner, and a property for a service the area's partner does
+    # not offer (commercial without clearance, an HMO or a short let they do not manage) stays with head office, with
+    # a note saying why (services.routing).
+    service = routing.instruction_service(prop["service_line"])
+    partner_id = routing.partner_id_for(area, service=service)
+    routed = routing.routing_note(area, service=service)
+    if routed:
+        notes = f"{notes}\n{routed}" if notes else routed
     by = f"api:{client.name}"
     instruction = Instruction(
         external_ref=external_ref, origin_system=origin, origin_url=origin_url,
@@ -620,7 +657,8 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
     db.add(instruction)
     audit(db, None, "partner_api.property.create", f"instruction:{instruction.id}",
           f"via api client {client.name}: {instruction.ref} from {origin}; {instruction.outward}; {instruction.service_line}; "
-          f"area {area.slug if area else 'none'}; partner {partner_id or 'head office'}; consent {consent_version}")
+          f"area {area.slug if area else 'none'}; partner {partner_id or 'head office'}; consent {consent_version}"
+          + (f"; {routed}" if routed else ""))
     db.commit()
     throttle_hit(cap_key)
     db.refresh(instruction)

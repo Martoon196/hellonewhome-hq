@@ -1,4 +1,4 @@
-"""Commercial lettings (plan, Phase 5): the hidden fee sheet, the public pages, the commercial appraisal lead, the
+"""Commercial lettings (plan, Phase 5): the fee sheet (approved, quoted plus VAT), the public pages, the commercial appraisal lead, the
 routing rule for leads and instructions, the partner flag and what the portal shows, the seeded training page and
 migration 0004.
 
@@ -133,41 +133,48 @@ def _instruction(**overrides) -> dict:
     return body
 
 
-# ---- fee sheet hidden until confirmed ------------------------------------------------
-def test_commercial_fees_are_hidden_until_confirmed(client, admin_client):
+# ---- fee sheet: approved, quoted plus VAT, hidden again if head office unticks it -----------------
+def test_commercial_fees_are_shown_plus_vat_and_hidden_when_unticked(client, admin_client):
     with session() as db:
         current = site_settings.get_all(db)
-    assert current["fees_commercial_confirmed"] is False
-    assert site_settings.commercial_fees(current) is None
-    assert site_settings.commercial_fees(dict(current, fees_commercial_confirmed=True))["letting_minimum"] == "£1,500"
+    # the founder approved the sheet: the seed revision ticked the box once, and the note is "plus VAT"
+    assert current["fees_commercial_confirmed"] is True
+    assert site_settings.commercial_fees(current)["vat_note"] == "plus VAT"
     assert config.FEES_COMMERCIAL_CONFIRMED is False
-    page = client.get("/commercial")
-    assert page.status_code == 200
-    assert site_settings.FEES_PENDING_SENTENCE in page.text
+    page = client.get("/commercial").text
+    assert site_settings.FEES_PENDING_SENTENCE not in page
     for figure in FEE_FIGURES:
-        assert figure not in page.text, figure
-    # admin only: the [CONFIRM] badge on the proposal, and the figures are editable there
+        assert figure in page, figure
+    # every commercial fee figure carries "plus VAT", in the table and in the hero
+    for cell in ("10% of the first year&#39;s rent plus VAT, minimum £1,500 plus VAT", "8% of rent collected plus VAT",
+                 "£750 plus VAT", "£350 plus VAT", "letting fee of the first year&#39;s rent, plus VAT", "All fees plus VAT."):
+        assert cell in page, cell
+    assert "registers for VAT" not in page
     admin_page = admin_client.get("/admin/settings").text
-    assert "[CONFIRM]" in admin_page and 'name="fees_commercial_confirmed"' in admin_page and 'value="£1,500"' in admin_page
-    assert "registers for VAT" in admin_page
+    assert "[CONFIRM]" not in admin_page and 'name="fees_commercial_confirmed"' in admin_page and 'value="£1,500"' in admin_page
+    assert 'value="plus VAT"' in admin_page
+    # unticked in the admin, the figures leave the public pages again and the [CONFIRM] badge returns
     with session() as db:
-        site_settings.put(db, "fees_commercial_confirmed", True)
+        site_settings.put(db, "fees_commercial_confirmed", False)
         db.commit()
     try:
         page = client.get("/commercial").text
-        assert site_settings.FEES_PENDING_SENTENCE not in page
+        assert site_settings.FEES_PENDING_SENTENCE in page
         for figure in FEE_FIGURES:
-            assert figure in page, figure
-        assert "plus VAT only if Hello New Home 2 Ltd registers for VAT" in page
-        assert "[CONFIRM]" not in admin_client.get("/admin/settings").text
+            assert figure not in page, figure
+        assert site_settings.commercial_fees(dict(current, fees_commercial_confirmed=False)) is None
+        assert "[CONFIRM]" in admin_client.get("/admin/settings").text
     finally:
         with session() as db:
-            site_settings.put(db, "fees_commercial_confirmed", False)
+            site_settings.put(db, "fees_commercial_confirmed", True)
             db.commit()
-    assert site_settings.FEES_PENDING_SENTENCE in client.get("/commercial").text
+    assert site_settings.FEES_PENDING_SENTENCE not in client.get("/commercial").text
 
 
 def test_env_override_confirms_the_commercial_sheet_on_boot(client, monkeypatch):
+    with session() as db:                       # start from an unticked box, as head office might leave it
+        site_settings.put(db, "fees_commercial_confirmed", False)
+        db.commit()
     monkeypatch.setattr(config, "FEES_COMMERCIAL_CONFIRMED", True)
     seed_module.seed(quiet=True)
     with session() as db:
@@ -178,6 +185,8 @@ def test_env_override_confirms_the_commercial_sheet_on_boot(client, monkeypatch)
     seed_module.seed(quiet=True)
     with session() as db:
         assert db.get(Setting, "fees_commercial_confirmed").value is False
+        site_settings.put(db, "fees_commercial_confirmed", True)       # leave the approved sheet as the seed left it
+        db.commit()
 
 
 # ---- public pages -----------------------------------------------------------------------
@@ -476,9 +485,11 @@ def test_training_page_is_seeded_by_revision(client, martin_client):
         assert "Scotland" in res.body and "Northern Ireland" in res.body and "[CONFIRM" not in res.body
         assert "assured shorthold" not in res.body and "since 1 April 2023" in res.body
         assert "<h2>The short checklist for the visit</h2>" in res.body
+        # the sheet is approved: commercial fees are published and always quoted plus VAT
+        assert "quoted plus VAT" in res.body and "registers for VAT" not in res.body
         rid = res.id
         revisions = db.get(Setting, "seed_revisions").value
-        assert revisions["resource:commercial-training"] == 2
+        assert revisions["resource:commercial-training"] == 3
     # every partner can read it, whether or not they are cleared for commercial work
     page = martin_client.get(f"/partners/resources/{rid}")
     assert page.status_code == 200 and "contracting out" in page.text and "No Right to Rent" in page.text
@@ -502,7 +513,7 @@ def test_training_page_is_seeded_by_revision(client, martin_client):
     with session() as db:
         res = db.query(Resource).filter(Resource.title == title).one()
         assert "<h2>The short checklist for the visit</h2>" in res.body
-        assert db.get(Setting, "seed_revisions").value["resource:commercial-training"] == 2
+        assert db.get(Setting, "seed_revisions").value["resource:commercial-training"] == 3
         # a live row is refreshed in place when the revision rises, and head office's edits survive between bumps
         res.body = "<p>edited by head office</p>"
         db.add(res)
@@ -517,7 +528,15 @@ def test_training_page_is_seeded_by_revision(client, martin_client):
     report = seed_module.seed(quiet=True)
     assert report["refreshed"] == 1
     with session() as db:
-        assert "Landlord and Tenant Act 1954" in db.query(Resource).filter(Resource.title == title).one().body
+        res = db.query(Resource).filter(Resource.title == title).one()
+        assert "Landlord and Tenant Act 1954" in res.body
+        # the bump replaced head office's edit, and the audit log keeps the text it replaced, whole
+        entry = (db.query(AuditLog).filter(AuditLog.action == "seed.resource_refresh", AuditLog.target == f"resource:{res.id}")
+                 .order_by(AuditLog.id.desc()).first())
+        assert entry is not None and entry.user_id is None
+        assert entry.detail == f"{title}: replaced by seed revision 3. The text it replaced:\n<p>edited by head office</p>"
+        db.delete(entry)
+        db.commit()
 
 
 # ---- migration 0004 --------------------------------------------------------------------
@@ -531,8 +550,9 @@ def test_migration_0004_adds_the_flag_with_a_false_default_and_removes_it(tmp_pa
         conn.execute(text("INSERT INTO partners (name, first_name, email, phone, whatsapp, whatsapp_display, bio, photo_path, "
                           "tier, status, units_managed, notes, created_at) VALUES ('Pat Partner', '', 'pat@example.test', '', "
                           "'', '', '', '', 'area', 'active', 0, '', '2026-01-01 00:00:00')"))
-    assert migrations.run_migrations(eng, quiet=True) == "upgraded"
-    assert migrations.current_revision(eng) == "0004_commercial" == migrations.head_revision()
+    with eng.begin() as conn:
+        command.upgrade(migrations.alembic_config(conn), "0004_commercial")
+    assert migrations.current_revision(eng) == "0004_commercial"
     column = next(c for c in inspect(eng).get_columns("partners") if c["name"] == "commercial_enabled")
     assert not column["nullable"]
     with eng.connect() as conn:

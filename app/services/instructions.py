@@ -94,8 +94,9 @@ def api_record(instruction: Instruction) -> dict:
 
 def scoped(db: Session, user: User, areas: list[Area]):
     """The instructions this user may see: everything for an admin; for a partner, those routed to one of their
-    areas or to them directly. A commercial instruction is head office's unless the partner is cleared to take
-    commercial instructions, so an uncleared partner sees nothing of it even when it sits in their area."""
+    areas or to them directly. An instruction for a service the partner does not offer (a commercial one without
+    commercial clearance, an HMO or a short let they do not manage) is head office's, so they see nothing of it
+    even when it sits in their area."""
     q = db.query(Instruction)
     if user.role == "admin":
         return q
@@ -108,9 +109,19 @@ def scoped(db: Session, user: User, areas: list[Area]):
     if not clauses:
         return q.filter(false())
     q = q.filter(or_(*clauses))
-    if not routing.partner_can_take(user.partner, commercial=True):
-        q = q.filter(Instruction.service_line != routing.COMMERCIAL_SERVICE_LINE)
+    hidden = [line for line, service in routing.INSTRUCTION_SERVICES.items()
+              if not routing.partner_offers(user.partner, service)]
+    if hidden:
+        q = q.filter(Instruction.service_line.notin_(hidden))
     return q
+
+
+def routing_note(instruction: Instruction) -> str:
+    """Why an instruction in a partner's area sits with head office ("" when it does not): the partner does not
+    offer the service it asks for (services.routing)."""
+    if instruction.partner_id is not None:
+        return ""
+    return routing.routing_note(instruction.area, service=routing.instruction_service(instruction.service_line))
 
 
 def summary_lines(instruction: Instruction) -> list[str]:
@@ -134,6 +145,7 @@ def summary_lines(instruction: Instruction) -> list[str]:
         f"Service: {SERVICE_LINE_LABELS.get(instruction.service_line, instruction.service_line)}",
         f"Area: {area.name if area else 'not covered'}",
         f"Partner: {instruction.partner.name if instruction.partner else ('head office' if area and area.is_hq else 'none')}",
+        *([f"Routing: {note}"] if (note := routing_note(instruction)) else []),
         f"Admin: {config.BASE_URL}/admin/instructions/{instruction.id}",
         f"Portal: {config.BASE_URL}/partners/instructions/{instruction.id}",
     ]
@@ -147,4 +159,5 @@ def notify(instruction: Instruction) -> bool:
     commercial = routing.is_commercial_instruction(instruction)
     subject = (f"[HNH property{' commercial' if commercial else ''}] {instruction.ref}, {instruction.postcode} "
                f"({instruction.area.name if instruction.area else 'not covered'})")
-    return mail.send(subject, "\n".join(summary_lines(instruction)), mail.notify_recipients(instruction.area, commercial=commercial))
+    recipients = mail.notify_recipients(instruction.area, service=routing.instruction_service(instruction.service_line))
+    return mail.send(subject, "\n".join(summary_lines(instruction)), recipients)

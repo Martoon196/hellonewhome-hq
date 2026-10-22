@@ -7,7 +7,8 @@
 
 The database is whatever DATABASE_URL names (the SQLite file under HNH_DATA_DIR when it is unset), so on
 Render run it from the service shell. ORDRIS_BASE_URL and ORDRIS_PARTNER_TOKEN_HNH must be set in the same
-shell; with either missing nothing is attempted and every row keeps its place. Only outcomes are printed:
+shell, and "Send instructed properties to Ordris" must be ticked in Admin -> Settings; otherwise nothing is
+attempted and every row keeps its place. Only outcomes are printed:
 never a token, never a request header. Exit status 0 when nothing remains unsent, 1 otherwise.
 """
 from __future__ import annotations
@@ -43,8 +44,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"#{row.id:<5} {row.target:<20} {row.state:<8} attempts {row.attempts:<2} created {ordris_sync.fmt_when(row.created_at)}"
                       + (f"  last error: {row.last_error}" if row.last_error else ""))
             return 1
-        if not ordris_sync.configured():
-            print(ordris_sync.NOT_CONFIGURED, file=sys.stderr)
+        if not ordris_sync.enabled(db) or not ordris_sync.configured():
+            print(ordris_sync.SWITCHED_OFF if not ordris_sync.enabled(db) else ordris_sync.NOT_CONFIGURED, file=sys.stderr)
             print(f"{len(rows)} row{'s' if len(rows) != 1 else ''} left waiting.")
             return 1
         remaining = 0

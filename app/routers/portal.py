@@ -28,7 +28,7 @@ from ..auth import (PARTNER_PAUSED_MESSAGE, audit, check_origin, clear_session, 
                     verify_password)
 from ..db import get_db
 from ..models import Announcement, Area, Instruction, Lead, Partner, Resource, User
-from ..services import content, instructions, kit, ordris_sync, routing, settings
+from ..services import content, instructions, kit, ordris_sync, routing, settings, vat
 from ..services.times import now_uk_stamp
 
 log = logging.getLogger("hnh.portal")
@@ -122,7 +122,8 @@ def _dom_id(value) -> str:
 
 def _scoped_leads(db: Session, user: User, areas: list[Area]):
     """Leads this user may see. Partner change requests are HQ's, not the partner's, so they are left out, and so
-    is a commercial appraisal unless the partner is cleared to take commercial instructions (services.routing)."""
+    is an enquiry for a service the partner does not offer: a commercial appraisal without commercial clearance, or
+    management they do not take on (services.routing; the service is recorded on the lead at intake)."""
     q = db.query(Lead).filter(Lead.kind != "partner_request")
     if user.role == "admin":
         return q
@@ -130,8 +131,9 @@ def _scoped_leads(db: Session, user: User, areas: list[Area]):
     if not ids:
         return q.filter(false())
     q = q.filter(Lead.area_id.in_(ids))
-    if not routing.partner_can_take(user.partner, commercial=True):
-        q = q.filter(Lead.kind != routing.COMMERCIAL_LEAD_KIND)
+    hidden = routing.not_offered(user.partner)
+    if hidden:
+        q = q.filter(Lead.service.notin_(hidden))
     return q
 
 
@@ -539,9 +541,12 @@ def _kit_bundle(db: Session, user: User, slug: str):
     area = _kit_area(db, user, slug)
     if area is None:
         return None, None, None, None
-    ctx = _kit_ctx(db, area)
+    # Once the company is VAT-registered, every "no VAT" claim in the templates and in the area's own facts is
+    # rewritten as VAT-inclusive before anything is rendered (services.vat); until then both pass through untouched.
+    registered = bool(settings.get(db, "vat_registered"))
+    ctx = vat.wording_deep(_kit_ctx(db, area), registered)
     html_ctx = {k: str(escape(v)) for k, v in ctx.items()}
-    return area, ctx, html_ctx, _templates()
+    return area, ctx, html_ctx, vat.wording_deep(_templates(), registered)
 
 
 @router.get("/kit", response_class=HTMLResponse)
@@ -879,9 +884,14 @@ def my_area(request: Request, ok: str = "", err: str = "", db: Session = Depends
         requests_q = requests_q.filter(Lead.partner_id == user.partner_id) if user.partner_id else requests_q.filter(false())
     sent = requests_q.order_by(Lead.created_at.desc()).limit(10).all()
     cards = [{"area": a, "maps_url": "https://www.google.com/maps/search/?api=1&query=" + quote(f"{a.name} UK"),
-              "hub": f"{config.BASE_URL}/areas/{a.slug}"} for a in areas]
+              "hub": f"{config.BASE_URL}/areas/{a.slug}",
+              "pages": {page: routing.area_page_offered(a, page) for page in routing.AREA_PAGE_SERVICES}} for a in areas]
+    # The services head office has switched on for this partner (services.routing), shown read-only.
+    partner = user.partner if user.partner_id else None
+    services = ([(routing.SERVICE_LABELS[s].capitalize(), routing.partner_offers(partner, s)) for s in routing.SERVICES]
+                if partner is not None else [])
     return render_portal(request, "portal/area.html", {
-        "db": db, "user": user, "section": "area", "cards": cards, "sent": sent, **_flash(ok, err),
+        "db": db, "user": user, "section": "area", "cards": cards, "sent": sent, "services": services, **_flash(ok, err),
     })
 
 

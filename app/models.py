@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, false, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, false, func, text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -64,6 +64,16 @@ class Partner(Base):
     # lead or instruction in this partner's area is routed to head office and kept out of their portal; see
     # services.routing. The server default means every row that predates the column reads as not cleared.
     commercial_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    # The services this partner offers in their areas (revision 0005), set by head office on the partner page: the
+    # founder offers management area by area, depending on who holds the area. Off, an enquiry for that service in
+    # their area goes to head office, their area pages say it is not offered locally yet, and their portal leaves
+    # it out (services.routing). Commercial letting is commercial_enabled above. Every partner took residential
+    # management, HMOs and short lets before these existed, so those default to on; commercial management starts
+    # equal to commercial_enabled (the migration copies it) and defaults to off for a new partner.
+    residential_management_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
+    hmo_management_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
+    shortlet_management_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
+    commercial_management_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
 
     areas: Mapped[list["Area"]] = relationship(back_populates="partner")
     users: Mapped[list["User"]] = relationship(back_populates="partner")
@@ -193,6 +203,11 @@ class Lead(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     source_page: Mapped[str] = mapped_column(String(200), default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+    # The service the enquiry is for, as services.routing.lead_service reads it at intake (revision 0005):
+    # residential_management | hmo_management | shortlet_management | commercial_letting | commercial_management,
+    # or "" for one any partner can take (a tenant find, a general question). It decides the partner and what the
+    # partner's portal shows when they do not offer the service.
+    service: Mapped[str] = mapped_column(String(30), default="", server_default=text("''"), nullable=False)
 
     area: Mapped[Area | None] = relationship()
     partner: Mapped[Partner | None] = relationship()

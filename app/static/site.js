@@ -193,7 +193,9 @@
     var target = area;
     if (served && served.slug) {
       var local = areaBySlug(served.slug);
-      target = { name: served.name, partner: served.partner, role: local ? local.role : (/head office/i.test(served.partner || "") ? "hq" : "partner") };
+      // A lead the server kept with head office (no partner yet, or a service the partner does not offer) names
+      // head office as its partner; say so rather than calling head office the area's Local Partner.
+      target = { name: served.name, partner: served.partner, role: /head office/i.test(served.partner || "") ? "hq" : (local ? local.role : "partner") };
     }
     if (who) who.textContent = target ? ("It goes to " + (target.role === "hq" ? "our head office team" : target.partner + ", your Local Partner in " + target.name) + ".") : "It goes to our head office team.";
     var copy = done.querySelector("[data-copy]");
@@ -213,17 +215,39 @@
     done.focus();
   }
 
+  // The service an enquiry form asks for, as the server reads it (services.routing.lead_service): the form's
+  // data-service, or the rent review's "I'm interested in" answer (a shared house makes management HMO management).
+  var INTEREST_SERVICES = { "full management": "residential_management", "rent guarantee": "residential_management",
+                            "hmo": "hmo_management", "short let": "shortlet_management" };
+  function formService(form) {
+    if (form.dataset.service) return form.dataset.service;
+    var picked = form.querySelector('input[name="interest"]:checked');
+    var service = picked ? (INTEREST_SERVICES[picked.value.toLowerCase()] || "") : "";
+    var type = form.querySelector('[name="type"]');
+    if (service === "residential_management" && type && /^hmo/i.test(type.value)) service = "hmo_management";
+    return service;
+  }
+
   Array.prototype.forEach.call(document.querySelectorAll("form[data-enquiry]"), function (form) {
-    // Pre-fill area from ?area=slug and show who will pick it up.
+    // Pre-fill area from ?area=slug and show who will pick it up: head office when the area's partner does not
+    // offer the service the form asks for.
     var slugField = form.querySelector('input[type="hidden"][name="area"]');
     var note = form.querySelector("[data-area-note]");
     var qs = location.search.match(/[?&]area=([a-z0-9-]+)/);
     if (qs && slugField) {
       slugField.value = qs[1];
-      loadAreas(function () {
+      var showTeam = function () {
         var a = areaBySlug(qs[1]);
-        if (a && note) note.textContent = "Your local team: Hello New Home " + a.name + " (" + (a.role === "hq" ? "head office" : a.partner) + ").";
-      });
+        if (!a || !note) return;
+        var service = formService(form);
+        if (service && a.role !== "hq" && a.services && a.services[service] === false) {
+          note.textContent = "This goes to our head office team: Hello New Home " + a.name + " does not offer it locally yet.";
+        } else {
+          note.textContent = "Your local team: Hello New Home " + a.name + " (" + (a.role === "hq" ? "head office" : a.partner) + ").";
+        }
+      };
+      loadAreas(showTeam);
+      form.addEventListener("change", showTeam);
     }
     form.addEventListener("submit", function (ev) {
       ev.preventDefault();

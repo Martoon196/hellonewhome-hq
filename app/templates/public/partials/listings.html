@@ -1,5 +1,6 @@
 {# Homes to rent in the area, read from Ordris (app/services/ordris_listings.py, plan Phase 6 C5). Included by
-   public/area.html under the fee section of the lettings page, and only when `listings` has something in it.
+   public/area.html under the fee section of the lettings page (or by public/area_not_offered.html when the area's
+   partner does not offer property management), and only when `listings` has something in it.
    Every value is one of for_template()'s view fields: outward code, bedrooms, type, rent, availability and the
    first photo with its alt text. No address, no person, no link but the valuation form. #}
 <div class="homes" id="homes-to-rent">

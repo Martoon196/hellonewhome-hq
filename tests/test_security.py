@@ -385,6 +385,7 @@ def test_fees_confirmed_setting_clears_kit_notice(admin_client, partner_a, partn
         else:
             form[key] = str(value)
     form.pop("fees_confirmed", None)
+    form["settings_form"] = re.search(r'name="settings_form" value="([0-9a-f]+)"', page.text).group(1)
     r = admin_client.post("/admin/settings", data=dict(form, fees_confirmed="1"))
     assert r.status_code == 303 and "ok=" in r.headers["location"], r.text
     with session() as db:

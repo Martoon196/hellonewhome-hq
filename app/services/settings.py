@@ -41,11 +41,13 @@ DEFAULTS: dict[str, object] = {
         "sa_full_pct": "18%",
         "sa_cohost_pct": "12%",
     },
-    # Commercial property lettings (plan, Phase 5). Every figure is a proposal awaiting the founder's decision:
-    # while fees_commercial_confirmed is False the public pages say only that fees are quoted after the appraisal
-    # and the admin settings page carries a [CONFIRM] badge. FEES_COMMERCIAL_CONFIRMED=1 in the environment
-    # confirms it on boot, as FEES_CONFIRMED does for the residential sheet.
-    "fees_commercial_confirmed": False,
+    # Commercial property lettings (plan, Phase 5). The founder approved the sheet on 22 October 2026; the seed
+    # revision "settings:commercial-fees-approved" (seed.SETTINGS_REVISIONS) ticked the confirmed box once on the
+    # live database, so an untick in Admin -> Settings sticks. While unticked the public pages say only that fees
+    # are quoted after the appraisal and the settings page carries a [CONFIRM] badge. FEES_COMMERCIAL_CONFIRMED=1
+    # in the environment still confirms it on every boot, as FEES_CONFIRMED does for the residential sheet.
+    # Commercial fees are quoted plus VAT, so registering for VAT later changes nothing a customer was told.
+    "fees_commercial_confirmed": True,
     "fees_commercial": {
         "letting_pct": "10%",
         "letting_basis": "of the first year's rent",
@@ -54,12 +56,29 @@ DEFAULTS: dict[str, object] = {
         "management_basis": "of rent collected",
         "lease_renewal": "£750",
         "schedule_of_condition": "£350",
-        "vat_note": "plus VAT only if Hello New Home 2 Ltd registers for VAT",
+        "vat_note": "plus VAT",
     },
+    # Whether Hello New Home 2 Ltd is registered for VAT. Residential fees must be shown including any tax
+    # (Consumer Rights Act 2015, s.83), so while this is off the public site and the marketing kit say no VAT is
+    # added, and once it is on every such claim says the fee includes VAT instead (services.vat). Switching it on
+    # changes the public wording at once: review the residential figures first.
+    "vat_registered": False,
+    # Instructed properties are sent to Ordris (services.ordris_sync). Off: nothing is sent and the outbox rows
+    # wait; on again, the Resend button or scripts/outbox_retry.py sends them.
+    "ordris_sync_enabled": True,
 }
+
+# The commercial VAT note before the founder's decision of 22 October 2026. The seed revision replaces a stored
+# note only while it still reads exactly this, so a note head office has edited is never overwritten.
+OLD_COMMERCIAL_VAT_NOTE = "plus VAT only if Hello New Home 2 Ltd registers for VAT"
 
 # The exact sentence the public pages show in place of the commercial fee sheet until it is confirmed.
 FEES_PENDING_SENTENCE = "Fees are quoted after the appraisal"
+
+
+def vat_registered(current: dict) -> bool:
+    """The VAT switch from a get_all dict (False when absent)."""
+    return bool(current.get("vat_registered"))
 
 
 def commercial_fees(current: dict) -> dict | None:

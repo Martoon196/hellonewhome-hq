@@ -7,6 +7,7 @@
   .todo h2 { font-size: 1rem; margin-bottom: .4rem; color: #5A3B05; }
   .todo ul { margin: 0; padding-left: 1.2rem; font-size: .92rem; }
   .todo code { background: #fff; padding: .05em .4em; border-radius: 4px; border: 1px solid #F0D9A6; }
+  .warn { border: 2px solid var(--amber); background: #FFF8EA; color: #5A3B05; border-radius: var(--radius); padding: .8rem 1rem; font-size: .92rem; margin: 0 0 1rem; }
 </style>
 {% endblock %}
 {% block content %}
@@ -18,14 +19,16 @@
 </div>
 {% endif %}
 <form method="post" action="/admin/settings" class="form">
+  <input type="hidden" name="settings_form" value="{{ form_version }}">
   {% for group_title, fields in groups %}
   <h2{% if loop.first %} class="mt-0" style="border:0;padding-top:0"{% endif %}>{{ group_title }}{% if group_title in confirm_badges %} <span class="status status-pending" title="A proposal: the public pages show these figures only once the confirmed box below is ticked">[CONFIRM]</span>{% endif %}</h2>
+  {% if group_warnings and group_title in group_warnings %}<p class="warn" role="note"><strong>Warning:</strong> {{ group_warnings[group_title] }}</p>{% endif %}
   <div class="form-grid">
     {% for fld in fields %}
       {% if fld.type == "textarea" %}{{ f.textarea(fld.name, fld.label, fld.value, rows=3) }}
-      {% elif fld.type == "checkbox" %}{{ f.checkbox(fld.name, fld.label, fld.value) }}
+      {% elif fld.type == "checkbox" %}{{ f.checkbox(fld.name, fld.label, fld.value, hint=fld.hint) }}
       {% elif fld.type == "number" %}{{ f.text(fld.name, fld.label, fld.value, type="number", attrs='min="0" step="1"') }}
-      {% else %}{{ f.text(fld.name, fld.label, fld.value) }}{% endif %}
+      {% else %}{{ f.text(fld.name, fld.label, fld.value, hint=fld.hint) }}{% endif %}
     {% endfor %}
   </div>
   {% endfor %}

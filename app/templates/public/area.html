@@ -46,9 +46,9 @@
         <a class="btn btn-wa btn-lg" href="{{ ctx.whatsapp_link }}?text={{ wa_text | urlencode }}" target="_blank" rel="noopener">WhatsApp {{ ctx.partner_first }}</a>
       </div>
       <ul class="hero-points">
-        <li>Full management {{ s.fees.full_management_pct }}, capped at {{ s.fees.full_management_cap }} a month</li>
+        {% if offers_management %}<li>Full management {{ s.fees.full_management_pct }}, capped at {{ s.fees.full_management_cap }} a month</li>{% endif %}
         <li>No lock-in, 30 days' notice</li>
-        <li>No VAT on any fee</li>
+        <li>{{ "VAT included in every residential fee" if s.vat_registered else "No VAT on any fee" }}</li>
         <li>{{ ctx.region_law }}</li>
       </ul>
     </div>
@@ -81,8 +81,8 @@
   <div class="wrap">
     <nav class="area-subnav" aria-label="{{ area.name }} pages">
       <a href="/areas/{{ area.slug }}"{% if page == "hub" %} class="is-active"{% endif %}>Letting agents in {{ area.name }}</a>
-      <a href="/areas/{{ area.slug }}/lettings"{% if page == "lettings" %} class="is-active"{% endif %}>Property management</a>
-      <a href="/areas/{{ area.slug }}/short-lets"{% if page == "shortlets" %} class="is-active"{% endif %}>Short-let management</a>
+      {% if offered.lettings %}<a href="/areas/{{ area.slug }}/lettings"{% if page == "lettings" %} class="is-active"{% endif %}>Property management</a>{% endif %}
+      {% if offered.shortlets %}<a href="/areas/{{ area.slug }}/short-lets"{% if page == "shortlets" %} class="is-active"{% endif %}>Short-let management</a>{% endif %}
       <a href="/areas/{{ area.slug }}/commercial">Commercial lettings</a>
     </nav>
     <div class="article">

@@ -7,6 +7,7 @@ with the submitted values and a 400 so nothing typed is lost.
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import re
@@ -569,22 +570,49 @@ def area_delete(area_id: int, db: Session = Depends(get_db), user: User = Depend
 # ============================================================================
 # 2. Partners
 # ============================================================================
+# The service switches on the partner form (services.routing): form field, label, and the hint under the box.
+PARTNER_SERVICE_FIELDS = (
+    ("residential_management_enabled", "Offers residential full management",
+     "Until ticked, a full management or rent guarantee enquiry in this partner's area goes to head office, and the "
+     "area's property management page says it is not offered locally yet."),
+    ("hmo_management_enabled", "Offers HMO management",
+     "Until ticked, an HMO enquiry or an HMO property in this partner's area goes to head office."),
+    ("shortlet_management_enabled", "Offers short-let management",
+     "Until ticked, a short-let appraisal or a short-let property in this partner's area goes to head office, and the "
+     "area's short-let page says it is not offered locally yet."),
+    ("commercial_management_enabled", "Offers commercial management",
+     "Until ticked, a commercial enquiry for a property that is already let (management) in this partner's area goes "
+     "to head office. Letting a commercial property is the box above."),
+)
+PARTNER_SERVICE_KEYS = tuple(name for name, _, _ in PARTNER_SERVICE_FIELDS)
+
+
 def _partner_vals(p: Partner | None) -> dict:
     if p is None:
+        # A new partner starts as one does in the database: residential, HMO and short-let management on.
         return {"name": "", "first_name": "", "email": "", "phone": "", "whatsapp": "", "whatsapp_display": "", "bio": "",
-                "tier": "area", "status": "pending", "units_managed": 0, "notes": "", "areas": [], "commercial_enabled": False}
+                "tier": "area", "status": "pending", "units_managed": 0, "notes": "", "areas": [], "commercial_enabled": False,
+                "residential_management_enabled": True, "hmo_management_enabled": True,
+                "shortlet_management_enabled": True, "commercial_management_enabled": False}
     return {"name": p.name, "first_name": p.first_name, "email": p.email, "phone": p.phone, "whatsapp": p.whatsapp,
             "whatsapp_display": p.whatsapp_display, "bio": p.bio, "tier": p.tier, "status": p.status,
             "units_managed": p.units_managed, "notes": p.notes, "areas": [a.id for a in p.areas],
-            "commercial_enabled": bool(p.commercial_enabled)}
+            "commercial_enabled": bool(p.commercial_enabled),
+            **{key: bool(getattr(p, key)) for key in PARTNER_SERVICE_KEYS}}
 
 
-def _partner_vals_from_form(form: FormData) -> dict:
+def _partner_vals_from_form(form: FormData, partner: Partner | None = None) -> dict:
     vals = {k: _s(form, k) for k in ("name", "first_name", "email", "phone", "whatsapp", "whatsapp_display", "bio",
                                       "tier", "status", "notes")}
     vals["units_managed"] = _int(_s(form, "units_managed"), 0)
     vals["areas"] = [_int(v, -1) for v in form.getlist("areas") if isinstance(v, str)]
     vals["commercial_enabled"] = form.get("commercial_enabled") == "1"
+    # The form says it carries the service boxes (an unticked box sends nothing); a post without that marker, from a
+    # page rendered before the boxes existed, leaves the partner's services as they are.
+    if form.get("services_form") == "1":
+        vals.update({key: form.get(key) == "1" for key in PARTNER_SERVICE_KEYS})
+    else:
+        vals.update({key: value for key, value in _partner_vals(partner).items() if key in PARTNER_SERVICE_KEYS})
     return vals
 
 
@@ -592,7 +620,7 @@ def _partner_form(request: Request, db: Session, vals: dict, partner: Partner | 
     areas = db.query(Area).order_by(Area.sort, Area.id).all()
     logins = list(partner.users) if partner else []
     ctx = {"db": db, "section": "partners", "vals": vals, "partner": partner, "areas": areas, "logins": logins,
-           "tiers": PARTNER_TIERS, "statuses": PARTNER_STATUSES}
+           "tiers": PARTNER_TIERS, "statuses": PARTNER_STATUSES, "service_fields": PARTNER_SERVICE_FIELDS}
     if error:
         ctx.update(flash=error, flash_kind="err")
     else:
@@ -621,7 +649,7 @@ def partner_edit(partner_id: int, request: Request, db: Session = Depends(get_db
 
 async def _save_partner(request: Request, db: Session, user: User, partner: Partner | None):
     form = await request.form()
-    vals = _partner_vals_from_form(form)
+    vals = _partner_vals_from_form(form, partner)
     errors: list[str] = []
     if not vals["name"]:
         errors.append("Name is required.")
@@ -654,11 +682,14 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
 
     action = "partner.update"
     commercial_before = bool(partner.commercial_enabled) if partner is not None else False
+    services_before = {key: bool(getattr(partner, key)) for key in PARTNER_SERVICE_KEYS} if partner is not None else {}
     if partner is None:
         partner = Partner(name=vals["name"][:120])
         db.add(partner)
         action = "partner.create"
     partner.commercial_enabled = vals["commercial_enabled"]
+    for key in PARTNER_SERVICE_KEYS:
+        setattr(partner, key, vals[key])
     partner.name = vals["name"][:120]
     partner.first_name = vals["first_name"][:60]
     partner.email = email
@@ -702,9 +733,16 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
     commercial_note = f"commercial instructions {'on' if partner.commercial_enabled else 'off'}"
     if action == "partner.update" and commercial_before != bool(partner.commercial_enabled):
         commercial_note += f" (was {'on' if commercial_before else 'off'})"
+    service_notes = []
+    for key in PARTNER_SERVICE_KEYS:
+        now_on = bool(getattr(partner, key))
+        note = f"{routing.SERVICE_LABELS[key.removesuffix('_enabled')]} {'on' if now_on else 'off'}"
+        if action == "partner.update" and services_before[key] != now_on:
+            note += f" (was {'on' if services_before[key] else 'off'})"
+        service_notes.append(note)
     audit(db, user, action, f"partner:{partner.id}",
           f"{partner.name}; status {partner.status}; tier {partner.tier}; areas {', '.join(a.name for a in selected) or 'none'}; "
-          f"{commercial_note}")
+          f"{commercial_note}; {'; '.join(service_notes)}")
     db.commit()
     return _go(f"/admin/partners/{partner.id}", ok="Partner saved.")
 
@@ -960,11 +998,15 @@ def lead_update(lead_id: int, status: str = Form(""), notes: str = Form(""), are
             lead.area_id = area.id
             if not lead.region:
                 lead.region = area.region
-        new_partner = routing.partner_for(area, commercial=routing.is_commercial_lead(lead))
+        service = routing.service_of(lead)
+        new_partner = routing.partner_for(area, service=service)
         new_partner_id = new_partner.id if new_partner else None
         if new_partner_id != lead.partner_id:
-            changes.append(f"partner to {new_partner.name if new_partner else 'head office'}")
+            routed = routing.routing_note(area, service=service)
+            changes.append(f"partner to {new_partner.name if new_partner else 'head office'}" + (f" ({routed})" if routed else ""))
             lead.partner_id = new_partner_id
+            # The portal hides a lead by its stored service, so it must say what the routing decided on.
+            lead.service = service
     if not changes:
         return _go(back, ok="No changes to save.")
     db.add(lead)
@@ -1032,7 +1074,7 @@ def instructions_list(request: Request, db: Session = Depends(get_db), user: Use
     ctx = _instruction_ctx(db, {
         "rows": rows, "filters": f, "areas": areas, "total": total, "page": page, "pages": pages, "qs": _qs(f),
         "qs_prev": _qs(f, page=page - 1), "qs_next": _qs(f, page=page + 1), "page_size": PAGE_SIZE,
-        "waiting": waiting, "ordris_configured": ordris_sync.configured(),
+        "waiting": waiting, "ordris_configured": ordris_sync.configured(), "ordris_enabled": ordris_sync.enabled(db),
         # The status line for the homes-to-rent block on the area pages: when this instance last read Ordris.
         "listings_status": ordris_listings.status(),
     })
@@ -1052,6 +1094,7 @@ def instruction_detail(instruction_id: int, request: Request, db: Session = Depe
     ctx = _instruction_ctx(db, {
         "inst": inst, "areas": areas, "timeline": timeline, "outbox": outbox, "payload": payload,
         "history": list(reversed(inst.status_history or [])), "ordris_configured": ordris_sync.configured(),
+        "ordris_enabled": ordris_sync.enabled(db),
         "can_send": inst.status in ("instructed", "let") and not inst.sent_to_ordris
                     and not any(o.state in ("pending", "failed") for o in outbox),
     })
@@ -1096,10 +1139,12 @@ def instruction_update(instruction_id: int, status: str = Form(""), notes: str =
         if area.id != inst.area_id:
             changes.append(f"area to {area.name}")
             inst.area_id = area.id
-        new_partner = routing.partner_for(area, commercial=routing.is_commercial_instruction(inst))
+        service = routing.instruction_service(inst.service_line)
+        new_partner = routing.partner_for(area, service=service)
         new_partner_id = new_partner.id if new_partner else None
         if new_partner_id != inst.partner_id:
-            changes.append(f"partner to {new_partner.name if new_partner else 'head office'}")
+            routed = routing.routing_note(area, service=service)
+            changes.append(f"partner to {new_partner.name if new_partner else 'head office'}" + (f" ({routed})" if routed else ""))
             inst.partner_id = new_partner_id
     if not changes:
         return _go(back, ok="No changes to save.")
@@ -1396,8 +1441,17 @@ SETTING_GROUPS: list[tuple[str, list[str]]] = [
     ("Lead response targets", ["lead_sla_hq_hours", "lead_sla_partner_hours"]),
     ("Fees", ["fees", "fees_confirmed"]),
     ("Commercial fees", ["fees_commercial", "fees_commercial_confirmed"]),
-    ("Systems", ["ordris_url", "ordris_label"]),
+    ("VAT", ["vat_registered"]),
+    ("Systems", ["ordris_url", "ordris_label", "ordris_sync_enabled"]),
 ]
+# A warning shown under a group's heading on the settings page.
+SETTING_GROUP_WARNINGS = {
+    "VAT": ("Switching this on changes the public wording at once: every \"no VAT\" claim on the website, the area pages "
+            "and the partners' marketing kit becomes \"VAT included\", and the footer says the company is VAT-registered. "
+            "Residential fees must be shown including VAT, so review the residential figures under Fees first, and give "
+            "landlords at least 30 days' notice of any fee change, as the fees page promises. Commercial fees are already "
+            "quoted plus VAT and do not change."),
+}
 # Setting groups that are proposals until their confirmed box is ticked: the settings page badges them [CONFIRM].
 CONFIRM_GROUPS = {"Commercial fees": "fees_commercial_confirmed"}
 SETTING_LABELS = {
@@ -1411,6 +1465,8 @@ SETTING_LABELS = {
     "fees_confirmed": "Fee sheet confirmed by the founder (clears the hold notice on the partners' marketing kit)",
     "ordris_url": "Ordris login link (agency management system; shown in the partner portal, blank to hide)",
     "ordris_label": "Ordris description shown to partners",
+    "ordris_sync_enabled": "Send instructed properties to Ordris",
+    "vat_registered": "Hello New Home 2 Ltd is VAT-registered (changes the public fee wording at once)",
     "fees.tenant_find": "Tenant find", "fees.full_management_pct": "Full management (percentage)",
     "fees.full_management_cap": "Full management cap (per month)", "fees.setup": "Set-up fee",
     "fees.rent_guarantee_addon": "Rent guarantee add-on (per month)", "fees.hmo_pct": "HMO management (percentage)",
@@ -1421,6 +1477,21 @@ SETTING_LABELS = {
     "fees_commercial.letting_minimum": "Commercial letting fee minimum", "fees_commercial.management_pct": "Commercial management (percentage)",
     "fees_commercial.management_basis": "Commercial management basis", "fees_commercial.lease_renewal": "Lease renewal or rent review",
     "fees_commercial.schedule_of_condition": "Schedule of condition", "fees_commercial.vat_note": "Commercial VAT note",
+}
+# Which settings the page renders, as a fingerprint of every key and sub-key: the form carries it, and a post with
+# another (or none) came from a page an earlier release rendered, before a setting was added or removed. Saving that
+# page would turn a box it never showed to off (Ordris sending, say) and put back what it showed then, so it is
+# refused and the current page is shown instead.
+SETTINGS_FORM_VERSION = hashlib.sha256(",".join(sorted(
+    f"{key}__{sub}" if isinstance(default, dict) else key
+    for key, default in settings.DEFAULTS.items() for sub in (default if isinstance(default, dict) else (None,))
+)).encode()).hexdigest()[:16]
+SETTINGS_FORM_STALE = ("Nothing was saved: this page was opened before an update changed the settings, so it did not show "
+                       "every one of them. It now shows the current values; make your change again.")
+SETTING_HINTS = {
+    "ordris_sync_enabled": ("While unticked nothing is sent to Ordris: an instructed property waits in the outbox. Tick it "
+                            "again, then use Resend on the instruction (or scripts/outbox_retry.py) to send what waited."),
+    "fees_commercial.vat_note": "Shown after every commercial fee figure.",
 }
 
 
@@ -1439,9 +1510,11 @@ def _setting_fields(current: dict) -> list[tuple[str, list[dict]]]:
                 stored = value if isinstance(value, dict) else {}
                 for sub, sub_default in default.items():
                     fields.append({"name": f"{key}__{sub}", "label": SETTING_LABELS.get(f"{key}.{sub}", _label(sub)),
-                                   "value": stored.get(sub, sub_default), "type": "text"})
+                                   "value": stored.get(sub, sub_default), "type": "text",
+                                   "hint": SETTING_HINTS.get(f"{key}.{sub}", "")})
             elif isinstance(default, bool):
-                fields.append({"name": key, "label": SETTING_LABELS.get(key, _label(key)), "value": bool(value), "type": "checkbox"})
+                fields.append({"name": key, "label": SETTING_LABELS.get(key, _label(key)), "value": bool(value), "type": "checkbox",
+                               "hint": SETTING_HINTS.get(key, "")})
             elif isinstance(default, int):
                 fields.append({"name": key, "label": SETTING_LABELS.get(key, _label(key)), "value": value, "type": "number"})
             else:
@@ -1468,7 +1541,8 @@ def _setting_placeholders(current: dict) -> list[tuple[str, str]]:
 def settings_form(request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     current = settings.get_all(db)
     ctx = {"db": db, "section": "settings", "groups": _setting_fields(current), "placeholders": _setting_placeholders(current),
-           "confirm_badges": _confirm_badges(current)}
+           "confirm_badges": _confirm_badges(current), "group_warnings": SETTING_GROUP_WARNINGS,
+           "form_version": SETTINGS_FORM_VERSION}
     ctx.update(_flash(request))
     return render_admin(request, "admin/settings.html", ctx)
 
@@ -1482,6 +1556,11 @@ def _confirm_badges(current: dict) -> set[str]:
 async def settings_save(request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
     form = await request.form()
     current = settings.get_all(db)
+    if form.get("settings_form") != SETTINGS_FORM_VERSION:
+        ctx = {"db": db, "section": "settings", "groups": _setting_fields(current), "placeholders": _setting_placeholders(current),
+               "confirm_badges": _confirm_badges(current), "group_warnings": SETTING_GROUP_WARNINGS,
+               "form_version": SETTINGS_FORM_VERSION, "flash": SETTINGS_FORM_STALE, "flash_kind": "err"}
+        return render_admin(request, "admin/settings.html", ctx, 409)
     posted: dict = {}
     errors: list[str] = []
     for key, default in settings.DEFAULTS.items():
@@ -1510,13 +1589,16 @@ async def settings_save(request: Request, db: Session = Depends(get_db), user: U
             posted[key] = value
     if errors:
         ctx = {"db": db, "section": "settings", "groups": _setting_fields(posted), "placeholders": _setting_placeholders(current),
-               "confirm_badges": _confirm_badges(posted), "flash": " ".join(errors), "flash_kind": "err"}
+               "confirm_badges": _confirm_badges(posted), "group_warnings": SETTING_GROUP_WARNINGS,
+               "form_version": SETTINGS_FORM_VERSION, "flash": " ".join(errors), "flash_kind": "err"}
         return render_admin(request, "admin/settings.html", ctx, 400)
     changed = [k for k, v in posted.items() if v != current.get(k)]
     for key in changed:
         settings.put(db, key, posted[key])
     if changed:
-        audit(db, user, "settings.update", "settings", ", ".join(changed))
+        # A switch is logged with the way it went ("vat_registered on"), so the audit log says when it was flipped.
+        audit(db, user, "settings.update", "settings",
+              ", ".join(f"{k} {'on' if posted[k] else 'off'}" if isinstance(settings.DEFAULTS.get(k), bool) else k for k in changed))
         db.commit()
         return _go("/admin/settings", ok=f"Settings saved ({len(changed)} changed).")
     return _go("/admin/settings", ok="No changes to save.")
