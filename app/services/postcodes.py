@@ -9,7 +9,15 @@ from sqlalchemy.orm import Session
 from ..models import Area
 
 WALES = {"CF", "LD", "LL", "NP", "SA"}
-SCOTLAND = {"AB", "DD", "DG", "EH", "FK", "G", "HS", "IV", "KA", "KW", "KY", "ML", "PA", "PH", "TD", "ZE"}
+# The same fifteen wholly Scottish areas and TD border area as Property Predator's backend/services/jurisdiction.py
+# and frontend/pp-jurisdiction.js. PP calls all of TD only "scotland-likely"; Hello New Home has no "likely" region
+# (a postcode is served or turned away), so it splits TD by district: TD15, Berwick-upon-Tweed, is England and the
+# rest of TD is Scotland. The split is by district, not by street: TD15 1 takes in a few Scottish villages (Paxton,
+# Foulden) and TD12 4 a few English ones (Cornhill-on-Tweed, Wark), which only a postcodes.io lookup tells apart.
+# site.js carries the same lists.
+SCOTLAND = {"AB", "DD", "DG", "EH", "FK", "G", "HS", "IV", "KA", "KW", "KY", "ML", "PA", "PH", "ZE"}
+SCOTLAND_BORDER = {"TD"}            # mostly Scotland; TD15 is England
+BORDER_ENGLAND = {"TD15"}           # Berwick-upon-Tweed
 NI = {"BT"}
 _OUTWARD = re.compile(r"^[A-Z]{1,2}\d[A-Z\d]?$")
 
@@ -35,11 +43,18 @@ def normalise(postcode: str) -> str | None:
     return outward if _OUTWARD.match(outward) else None
 
 
-def region_for(area_code: str) -> str:
+def region_for(code: str) -> str:
+    """The region for an outward code ('TD15') or a bare postcode area ('TD'). Pass the outward code where there
+    is one: only the district tells Berwick (TD15, England) from the rest of TD, which a bare 'TD' counts as
+    Scotland."""
+    m = re.match(r"^[A-Z]{1,2}", code or "")
+    area_code = m.group(0) if m else ""
     if area_code in WALES:
         return "wales"
     if area_code in SCOTLAND:
         return "scotland"
+    if area_code in SCOTLAND_BORDER:
+        return "england" if code in BORDER_ENGLAND else "scotland"
     if area_code in NI:
         return "northern-ireland"
     return "england"
@@ -69,4 +84,4 @@ def locate(db: Session, postcode: str, *, include_coming: bool = True) -> Locati
             if area_code in (a.postcodes or []):
                 match = a
                 break
-    return Location(outward=outward, area_code=area_code, region=region_for(area_code), area=match)
+    return Location(outward=outward, area_code=area_code, region=region_for(outward), area=match)

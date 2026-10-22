@@ -293,6 +293,34 @@ def test_postcode_clash_and_bare_postcodes(token, partner_a):
         assert area.postcodes == ["LL11", "LL12"]
     r = api.post("/api/partner/partners", json=_payload(email="scot@example.test", name="Scot Land", new_area=None, postcodes=["EH1"]))
     assert r.status_code == 422 and "England and Wales" in r.json()["message"]
+    # TD straddles the border: Berwick-upon-Tweed (TD15) is England, the rest of TD is Scotland
+    r = api.post("/api/partner/partners", json=_payload(email="galashiels@example.test", name="Gala Shiels", new_area=None,
+                                                        postcodes=["TD1"]))
+    assert r.status_code == 422 and "TD1 is in Scotland" in r.json()["message"]
+    # every district is checked, not only the first: Berwick's Scottish neighbours (or the bare area) after TD15
+    # must not make an England area that covers Duns or Hawick
+    for i, codes in enumerate((["TD15", "TD11"], ["TD15", "TD12", "TD14"], ["TD15", "TD"])):
+        r = api.post("/api/partner/partners", json=_payload(email=f"border{i}@example.test", name="Border Patch", new_area=None,
+                                                            postcodes=codes))
+        assert r.status_code == 422 and f"{codes[1]} is in Scotland" in r.json()["message"], (codes, r.text)
+    # a region named by the caller does not skip the check; it may still say Wales for a border district
+    r = api.post("/api/partner/partners", json=_payload(email="hawick@example.test", name="Hawick Partner",
+                                                        new_area={"name": "Hawick", "region": "england", "postcodes": ["TD9"]}))
+    assert r.status_code == 422 and "TD9 is in Scotland" in r.json()["message"], r.text
+    with session() as db:       # nothing refused was half-made
+        assert not [a.slug for a in db.query(Area).all() if any(c.startswith("TD") for c in a.postcodes or [])]
+        assert db.query(Partner).filter(Partner.email.in_(["hawick@example.test"] + [f"border{i}@example.test" for i in range(3)])).count() == 0
+    r = api.post("/api/partner/partners", json=_payload(email="deeside@example.test", name="Dee Side",
+                                                        new_area={"name": "Deeside", "region": "wales", "postcodes": ["CH5"]}))
+    assert r.status_code == 201, r.text
+    with session() as db:
+        assert db.query(Area).filter(Area.slug == "deeside").one().region == "wales"
+    r = api.post("/api/partner/partners", json=_payload(email="berwick@example.test", name="Berwick Partner", new_area=None,
+                                                        postcodes=["TD15"]))
+    assert r.status_code == 201, r.text
+    with session() as db:
+        area = db.query(Area).filter(Area.slug == r.json()["area_slug"]).one()
+        assert (area.region, area.postcodes) == ("england", ["TD15"])
     r = api.post("/api/partner/partners", json=_payload(email="two@example.test", name="Two Ways", postcodes=["BS1"]))
     assert r.status_code == 422 and "not several" in r.json()["message"]
 

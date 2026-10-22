@@ -16,7 +16,7 @@ from app import auth, config
 from app.main import app
 from app.models import Area, Lead, Partner, Setting, User
 from app.services import kit
-from app.services.postcodes import locate
+from app.services.postcodes import BORDER_ENGLAND, NI, SCOTLAND, SCOTLAND_BORDER, WALES, locate
 from app.services.times import fmt_uk
 from tests.conftest import ADMIN_EMAIL, ADMIN_PASSWORD, login, make_partner, session
 
@@ -259,8 +259,9 @@ def test_new_admin_must_change_generated_password(admin_client):
 
 
 # ---- high: browser finder agrees with the server -----------------------------
-def _js_locate(areas: list[dict], postcodes: list[str]) -> list[str | None]:
-    """Run site.js's locate() under node with the given areas; returns the matched slug per postcode."""
+def _js_locate(areas: list[dict], postcodes: list[str], pick: str = "r && r.area ? r.area.slug : null") -> list:
+    """Run site.js's locate() under node with the given areas; returns `pick` (a JS expression over the result r,
+    by default the matched slug) per postcode."""
     src = (config.ROOT / "app" / "static" / "site.js").read_text(encoding="utf-8")
     start = src.index("function locate(pc) {")
     depth, i = 0, start
@@ -273,9 +274,9 @@ def _js_locate(areas: list[dict], postcodes: list[str]) -> list[str | None]:
                 break
         i += 1
     fn = src[start:i + 1]
-    consts = "\n".join(line for line in src.splitlines() if re.match(r"\s*var (WALES|SCOTLAND|NI) = \[", line))
+    consts = "\n".join(line for line in src.splitlines() if re.match(r"\s*var [A-Z_]+ = \[", line))
     script = (f"var AREAS = {json.dumps(areas)};\n{consts}\n{fn}\n"
-              f"console.log(JSON.stringify({json.dumps(postcodes)}.map(function (pc) {{ var r = locate(pc); return r && r.area ? r.area.slug : null; }})));")
+              f"console.log(JSON.stringify({json.dumps(postcodes)}.map(function (pc) {{ var r = locate(pc); return {pick}; }})));")
     out = subprocess.run([shutil.which("node"), "-e", script], capture_output=True, text=True, check=True)
     return json.loads(out.stdout.strip())
 
@@ -311,6 +312,35 @@ def test_browser_and_server_route_nested_districts_the_same_way(client, db):
             london.postcodes = [c for c in london.postcodes if c != "PL"]
             s.add(london)
             s.commit()
+
+
+def _js_lists() -> dict[str, set[str]]:
+    """The postcode-area constants site.js declares (var NAME = ["..", ..];), by name."""
+    src = (config.ROOT / "app" / "static" / "site.js").read_text(encoding="utf-8")
+    return {m.group(1): set(json.loads(m.group(2)))
+            for m in re.finditer(r"^\s*var ([A-Z_]+) = (\[[^\]]*\]);", src, re.M)}
+
+
+def test_browser_and_server_carry_the_same_nation_lists():
+    """site.js and services/postcodes.py hold the same lists. The fifteen wholly Scottish areas, the TD border area
+    and BT are Property Predator's (backend/services/jurisdiction.py, frontend/pp-jurisdiction.js); TD15 as England
+    is Hello New Home's own split of PP's "scotland-likely" TD, since HNH has no "likely" region."""
+    js = _js_lists()
+    server = {"WALES": WALES, "SCOTLAND": SCOTLAND, "SCOTLAND_BORDER": SCOTLAND_BORDER, "BORDER_ENGLAND": BORDER_ENGLAND,
+              "NI": NI}
+    assert js == server
+    assert server["SCOTLAND"] == {"AB", "DD", "DG", "EH", "FK", "G", "HS", "IV", "KA", "KW", "KY", "ML", "PA", "PH", "ZE"}
+    assert (server["SCOTLAND_BORDER"], server["BORDER_ENGLAND"], server["NI"]) == ({"TD"}, {"TD15"}, {"BT"})
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is needed to run site.js")
+def test_browser_and_server_put_berwick_in_england(db):
+    """The finder must not tell a Berwick-upon-Tweed (TD15) landlord "Not yet in Scotland"; the rest of TD is
+    Scotland, as on the server."""
+    cases = ["TD15 1AA", "td151aa", "TD1 1AA", "TD6 9AA", "EH1 1YZ", "NE1 4ST", "SA1 1AA", "BT1 5GS"]
+    server = [locate(db, pc).region for pc in cases]
+    assert server == ["england", "england", "scotland", "scotland", "scotland", "england", "wales", "northern-ireland"]
+    assert _js_locate([], cases, pick="r && r.region") == server
 
 
 def test_admin_is_told_when_a_district_nests_inside_another_areas_whole_area(admin_client):

@@ -1631,7 +1631,7 @@ def territory(request: Request, postcode: str = "", db: Session = Depends(get_db
                         break
             dormant = [a for a in areas if a.status not in ("active", "coming")
                        and (outward in (a.postcodes or []) or letters in (a.postcodes or []))]
-            result = {"query": postcode, "outward": outward, "letters": letters, "region": region_for(letters),
+            result = {"query": postcode, "outward": outward, "letters": letters, "region": region_for(outward),
                       "area": match, "rule": rule, "dormant": dormant}
 
     owners: dict[str, list[Area]] = {}

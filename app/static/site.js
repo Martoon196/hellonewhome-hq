@@ -27,7 +27,11 @@
     areasLoading.then(cb, cb);
   }
   var WALES = ["CF", "LD", "LL", "NP", "SA"];
-  var SCOTLAND = ["AB", "DD", "DG", "EH", "FK", "G", "HS", "IV", "KA", "KW", "KY", "ML", "PA", "PH", "TD", "ZE"];
+  // The same lists as services/postcodes.py (see there): TD straddles the border, so TD15, Berwick-upon-Tweed,
+  // is England and the rest of TD is Scotland.
+  var SCOTLAND = ["AB", "DD", "DG", "EH", "FK", "G", "HS", "IV", "KA", "KW", "KY", "ML", "PA", "PH", "ZE"];
+  var SCOTLAND_BORDER = ["TD"];           // mostly Scotland; TD15 is England
+  var BORDER_ENGLAND = ["TD15"];          // Berwick-upon-Tweed
   var NI = ["BT"];
 
   function esc(s) {
@@ -46,7 +50,9 @@
     if (!/^[A-Z]{1,2}\d[A-Z\d]?$/.test(outward)) return null;
     var m = outward.match(/^[A-Z]{1,2}/);
     var areaCode = m[0];
-    var region = WALES.indexOf(areaCode) > -1 ? "wales" : SCOTLAND.indexOf(areaCode) > -1 ? "scotland" : NI.indexOf(areaCode) > -1 ? "northern-ireland" : "england";
+    var region = WALES.indexOf(areaCode) > -1 ? "wales" : SCOTLAND.indexOf(areaCode) > -1 ? "scotland"
+      : SCOTLAND_BORDER.indexOf(areaCode) > -1 ? (BORDER_ENGLAND.indexOf(outward) > -1 ? "england" : "scotland")
+      : NI.indexOf(areaCode) > -1 ? "northern-ireland" : "england";
     // Same two passes as services/postcodes.locate on the server: an area listing the exact district
     // (KT1) wins over one listing the whole postcode area (KT), whatever their order.
     var area = null;

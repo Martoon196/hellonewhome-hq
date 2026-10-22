@@ -254,6 +254,30 @@ def test_locate_scotland_and_northern_ireland(db):
     assert loc.region == "northern-ireland" and loc.area is None
 
 
+def test_berwick_td15_is_england_and_the_rest_of_td_is_scotland(client, admin_client, db):
+    """TD (the Borders) straddles the border: TD15 is Berwick-upon-Tweed, England, so a Berwick landlord must not
+    be told "Not yet in Scotland". Property Predator calls all of TD only likely Scotland; Hello New Home, with no
+    "likely" region, splits it by district."""
+    assert region_for("TD15") == "england" and region_for("TD1") == "scotland"
+    assert region_for("TD") == "scotland"          # a bare area cannot say which side of the border it is
+    assert region_for("EH") == region_for("EH1") == "scotland"
+    assert region_for("NE") == region_for("NE1") == "england"
+    for pc, outward, region in (("TD15 1AA", "TD15", "england"), ("td151aa", "TD15", "england"),
+                                ("TD1 1AA", "TD1", "scotland"), ("EH1 1YZ", "EH1", "scotland"),
+                                ("NE1 4ST", "NE1", "england")):
+        loc = locate(db, pc)
+        assert (loc.outward, loc.area_code, loc.region) == (outward, outward.rstrip("0123456789"), region), pc
+    body = client.get("/api/locate", params={"postcode": "TD15 1AA"}).json()
+    assert (body["ok"], body["outward"], body["region"]) == (True, "TD15", "england")
+    body = post_lead(client, name="Berwick Lead", postcode="TD15 1AA")
+    with session() as s:
+        assert s.get(Lead, body["id"]).region == "england"
+    # the admin territory checker says the same
+    page = admin_client.get("/admin/territory", params={"postcode": "TD15 1AA"})
+    assert page.status_code == 200 and "<dt>Region</dt><dd>England</dd>" in page.text
+    assert "<dt>Region</dt><dd>Scotland</dd>" in admin_client.get("/admin/territory", params={"postcode": "TD1 1AA"}).text
+
+
 def test_api_locate(client, partner_a):
     r = client.get("/api/locate", params={"postcode": "TS1 2AB"})
     body = r.json()

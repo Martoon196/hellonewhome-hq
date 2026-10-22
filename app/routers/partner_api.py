@@ -278,11 +278,14 @@ def _area_spec(data: dict) -> tuple[str, dict] | None:
 
 
 def _create_area(db: Session, partner: Partner, spec: dict, partner_status: str) -> Area:
-    letters = re.match(r"^[A-Z]{1,2}", spec["postcodes"][0]).group(0)
-    region = spec["region"] or region_for(letters)
-    if region not in AREA_REGIONS:
-        raise _invalid(f"Hello New Home operates in England and Wales; {spec['postcodes'][0]} is in "
-                       f"{region.replace('-', ' ').title()}.", "postcodes")
+    # Every district is checked, by district (TD15 is England, the rest of TD is not), and whether or not the
+    # caller named a region: a region may say Wales for a border district such as CH5, never Scotland's TD11.
+    for code in spec["postcodes"]:
+        nation = region_for(code)
+        if nation not in AREA_REGIONS:
+            raise _invalid(f"Hello New Home operates in England and Wales; {code} is in "
+                           f"{nation.replace('-', ' ').title()}.", "postcodes")
+    region = spec["region"] or region_for(spec["postcodes"][0])
     clash = _postcode_clashes(db, spec["postcodes"], None)
     if clash:
         raise ApiError(409, "postcode_clash", clash)
