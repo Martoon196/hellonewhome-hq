@@ -28,7 +28,8 @@ from ..auth import (PARTNER_PAUSED_MESSAGE, audit, check_origin, clear_session, 
                     verify_password)
 from ..db import get_db
 from ..models import Announcement, Area, Instruction, Lead, Partner, Resource, User
-from ..services import content, instructions, kit, ordris_sync, routing, settings, vat
+from ..services import content, instructions, kit, ordris_sync, referrals, routing, settings, vat
+from ..services.postcodes import normalise as normalise_postcode
 from ..services.times import now_uk_stamp
 
 log = logging.getLogger("hnh.portal")
@@ -470,6 +471,37 @@ def instruction_update(instruction_id: int, request: Request, status: str = Form
             # The partner's change is saved; the Ordris step is head office's to chase, so the wording stays theirs.
             return _redirect(back, ok="Saved. Head office will set the property up in Ordris.")
     return _redirect(back, ok="Saved.")
+
+
+# ---- introductions: the partner's referral link and who they have introduced ----------------
+# Status only: a partner sees when an introduction arrived, what it was, roughly where (area and outward postcode) and
+# where it stands. Never a name, a contact detail, an address or any figure about money (services.referrals): an
+# introduction may be served by another partner or by head office, and pay is worked out by head office by hand.
+@router.get("/introductions", response_class=HTMLResponse)
+def introductions_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_partner)):
+    partner = user.partner if user.partner_id else None
+    leads, insts = referrals.introductions(db, partner.id) if partner is not None else ([], [])
+    code = partner.referral_code if partner is not None else ""
+    links = []
+    if code:
+        # The same code works on any public page; these are the ones worth sharing, the partner's own area pages first.
+        links = ([{"label": f"Hello New Home {a.name}", "url": referrals.referral_link(code, f"/areas/{a.slug}")}
+                  for a in partner_areas(db, user) if a.is_public]
+                 + [{"label": "Free rent review", "url": referrals.referral_link(code, "/valuation")},
+                    {"label": "Short lets", "url": referrals.referral_link(code, "/serviced-accommodation")},
+                    {"label": "Become a Local Partner", "url": referrals.referral_link(code, "/partners-programme")}])
+    # Only these fields leave the database for this page: the outward postcode at most, never the full one.
+    lead_rows = [{"created_at": l.created_at, "what": LEAD_KIND_LABELS.get(l.kind, l.kind.replace("_", " ")).capitalize(),
+                  "area": l.area.name if l.area else "", "outward": normalise_postcode(l.postcode) or "", "status": l.status}
+                 for l in leads]
+    inst_rows = [{"created_at": i.created_at, "ref": i.ref, "what": instructions.SERVICE_LINE_LABELS.get(i.service_line, i.service_line),
+                  "area": i.area.name if i.area else "", "outward": i.outward, "status": i.status,
+                  "status_label": instructions.STATUS_LABELS.get(i.status, i.status)} for i in insts]
+    return render_portal(request, "portal/introductions.html", {
+        "db": db, "user": user, "section": "introductions", "partner": partner, "code": code,
+        "link": referrals.referral_link(code), "links": links, "leads": lead_rows, "insts": inst_rows,
+        "cookie_days": referrals.COOKIE_DAYS,
+    })
 
 
 # ---- resources -------------------------------------------------------------

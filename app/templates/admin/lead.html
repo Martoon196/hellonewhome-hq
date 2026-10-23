@@ -29,6 +29,8 @@
         <dt>Address</dt><dd>{{ lead.address or "none" }}</dd>
         <dt>Area</dt><dd>{% if lead.area %}<a href="/admin/areas/{{ lead.area.id }}">{{ lead.area.name }}</a>{% else %}<span class="muted">Not covered</span>{% endif %}</dd>
         <dt>Partner</dt><dd>{% if lead.partner %}<a href="/admin/partners/{{ lead.partner.id }}">{{ lead.partner.name }}</a>{% elif lead.area and lead.area.is_hq %}Head office{% else %}<span class="muted">none</span>{% endif %}</dd>
+        <dt>Referred by</dt><dd>{% if lead.referrer %}<a href="/admin/partners/{{ lead.referrer.id }}">{{ referrer_label }}</a>{% else %}<span class="muted">nobody recorded</span>{% endif %}</dd>
+        {% if lead.seller_code %}<dt>Group HQ seller</dt><dd><code>{{ lead.seller_code }}</code> <span class="small muted">(from the seller's tracked link: enter it on the franchise opportunity in Group HQ)</span></dd>{% endif %}
         <dt>Source page</dt><dd>{{ lead.source_page or "unknown" }}</dd>
         <dt>Last updated</dt><dd>{{ lead.updated_at | uk("%d %b %Y %H:%M") or "-" }}</dd>
       </dl>
@@ -60,11 +62,31 @@
         <span class="hint">Reassigning also moves the lead to that area's partner (or head office).</span>
       </div>
       <div class="field mt-1">
+        <label for="referrer_id">Referring partner</label>
+        <select id="referrer_id" name="referrer_id">
+          <option value="none">Nobody</option>
+          {% for p in referrers %}<option value="{{ p.id }}"{% if lead.referrer_partner_id == p.id %} selected{% endif %}>{{ p.name }} ({{ p.referral_code }}){% if p.status != "active" %} - {{ p.status }}{% endif %}</option>{% endfor %}
+        </select>
+        <span class="hint">Who introduced this enquiry. Set it by hand for an introduction made by phone or WhatsApp; it counts under Referrals.</span>
+      </div>
+      <div class="field mt-1">
         <label for="notes">Notes</label>
         <textarea id="notes" name="notes" rows="6">{{ lead.notes }}</textarea>
       </div>
       <div class="form-actions"><button class="btn btn-primary" type="submit">Save</button></div>
     </form>
+    {% if instruction %}
+    <section class="panel mt-2">
+      <h2>Property instruction</h2>
+      <p>This lead is instruction <a href="/admin/instructions/{{ instruction.id }}"><strong>{{ instruction.ref }}</strong></a> ({{ instruction.status }}).</p>
+    </section>
+    {% elif can_instruct %}
+    <section class="panel mt-2">
+      <h2>Property instruction</h2>
+      <p class="help">When the landlord wants to go ahead, make the property an instruction: it joins Instructions with the landlord, the property, the routing and the referring partner from this lead, and goes to Ordris when it is marked instructed.</p>
+      <form method="post" action="/admin/leads/{{ lead.id }}/instruction" data-confirm="Create a property instruction from this lead?"><button class="btn btn-primary btn-sm" type="submit">Create instruction</button></form>
+    </section>
+    {% endif %}
     <section class="panel mt-2">
       <h2>Timeline</h2>
       {% if timeline %}

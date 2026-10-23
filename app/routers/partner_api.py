@@ -39,8 +39,8 @@ from sqlalchemy.orm import Session
 from ..auth import (ApiError, audit, generate_password, hash_password, normalise_email, require_api_client, throttle_check,
                     throttle_hit)
 from ..db import get_db
-from ..models import ApiClient, Area, Instruction, Lead, Partner, User
-from ..services import content, instructions, routing
+from ..models import ApiClient, Area, Instruction, Lead, Partner, RetiredReferralCode, User
+from ..services import content, instructions, referrals, routing
 from ..services.postcodes import locate, region_for
 from .admin import (AREA_REGIONS, EMAIL_RE, PARTNER_TIERS, SLUG_RE, _parse_postcodes, _partner_login, _postcode_clashes,
                     _postcode_nesting, _slugify, _whatsapp)
@@ -57,6 +57,10 @@ NOTE_LIMIT = 2000
 # Property instructions: which origin a client's instructions carry unless the body says otherwise, and how many
 # new instructions a client may create in a day (the per-process throttle the lead form and the login use).
 CLIENT_ORIGINS = {"propertypredator": "pp", "keyproperties": "kp"}
+# Clients whose sign-in proves a user's email: Key Properties signs its users in by a one-time link sent to that
+# address, so the introducer email it sends counts without an email_verified flag. Any other sender is credited by
+# introducer email only when it says introducer.email_verified is true (introducer_vouched).
+EMAIL_PROVING_CLIENTS = {"keyproperties"}
 PROPERTIES_DAILY_LIMIT = 60
 PROPERTIES_WINDOW = 24 * 60 * 60
 CONSENT_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$")
@@ -80,12 +84,22 @@ def _area_record(area: Area) -> dict:
 
 def partner_record(partner: Partner) -> dict:
     """The shape every route answers with. `id` and `user_id` sit at the top of the record because that is
-    where the Group HQ connector reads them; `login` carries the rest of the login state."""
+    where the Group HQ connector reads them; `login` carries the rest of the login state.
+
+    Contract 3 of the mentee-earnings packet (Group HQ's connectors/hnh.py, partner_info): the record also carries
+    `referral_code` and `referral_link` (the public link that credits the partner, services.referrals), `area`
+    ({slug, name} of the partner's first area, or null while head office has not assigned one, which is what Group
+    HQ's "Needs a region" queue lists), `tier`, `status`, `portal_url` (the partner's login page) and `admin_url`
+    (the head-office page where the founder assigns the area). No figure about money is ever part of it."""
     login = _partner_login(partner)
+    area = referrals.primary_area(partner)
     return {
         "id": partner.id, "name": partner.name, "first_name": partner.first_name, "email": partner.email,
         "phone": partner.phone, "whatsapp": partner.whatsapp, "whatsapp_display": partner.whatsapp_display,
         "tier": partner.tier, "status": partner.status,
+        "referral_code": partner.referral_code, "referral_link": referrals.referral_link(partner.referral_code),
+        "area": {"slug": area.slug, "name": area.name} if area is not None else None,
+        "portal_url": referrals.portal_url(), "admin_url": referrals.admin_url(partner.id),
         "franchise": {"fee_waived": partner.franchise_fee_waived, "reason": partner.franchise_note or ""},
         "commercial_enabled": bool(partner.commercial_enabled),
         # What the partner offers in their areas (services.routing); commercial_letting is commercial_enabled.
@@ -220,7 +234,12 @@ def _release_placeholder(db: Session, placeholder: Partner) -> None:
     to it. The areas collection is reloaded first: it was read before the move, and deleting a partner whose
     loaded collection still holds the area would set that area's partner back to nothing."""
     db.expire(placeholder, ["areas", "users"])
-    if placeholder.areas or placeholder.users or db.query(Lead).filter(Lead.partner_id == placeholder.id).count():
+    pid = placeholder.id
+    if (placeholder.areas or placeholder.users
+            or db.query(Lead.id).filter((Lead.partner_id == pid) | (Lead.referrer_partner_id == pid)).first()
+            or db.query(Instruction.id).filter((Instruction.partner_id == pid)
+                                               | (Instruction.referrer_partner_id == pid)).first()
+            or db.query(RetiredReferralCode.id).filter(RetiredReferralCode.partner_id == pid).first()):
         return
     db.delete(placeholder)
     db.flush()
@@ -557,9 +576,22 @@ def _introducer(data: dict) -> dict:
     person_key = normalise_email(_text(raw, "person_key", limit=200) or "")
     if person_key and not EMAIL_RE.match(person_key):
         raise _invalid("introducer.person_key must be the introducer's email address.", "introducer.person_key")
+    # Property Predator says whether a verified identity (not a password alone) proved the email; anything but a JSON
+    # true or false counts as not said.
+    verified = raw.get("email_verified")
     return {"person_key": person_key,
             "pp_account_id": _text(raw, "pp_account_id", limit=60) or "",
-            "kp_user_id": _text(raw, "kp_user_id", limit=60) or ""}
+            "kp_user_id": _text(raw, "kp_user_id", limit=60) or "",
+            "email_verified": verified if isinstance(verified, bool) else None}
+
+
+def introducer_vouched(introducer: dict, client: ApiClient) -> bool:
+    """Whether the sender vouches for the introducer's email, so a partner with that email may be credited with the
+    introduction: email_verified is true, or the sender is a client whose sign-in proves the email and it says
+    nothing either way. A password-only claim never credits anyone: head office sees the match on the instruction
+    page and credits it by hand when it is right (migration 0006 applies the same rule to instructions on record)."""
+    flag = introducer.get("email_verified")
+    return flag is True or (flag is None and client.name in EMAIL_PROVING_CLIENTS)
 
 
 def _property(db: Session, data: dict) -> dict:
@@ -610,6 +642,9 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
                              client: ApiClient = Depends(require_api_client("properties:write"))):
     data = await _json_object(request)
     external_ref = _text(data, "external_ref", limit=200, required=True)
+    if instructions.head_office_ref(external_ref):
+        raise _invalid(f'external_ref may not begin "{instructions.HEAD_OFFICE_REF_PREFIX}": Hello New Home keeps those '
+                       "references for its own instructions. Choose another reference.", "external_ref")
     origin = _origin(data, client)
     existing = db.query(Instruction).filter(Instruction.external_ref == external_ref).first()
     if existing is not None:
@@ -651,6 +686,11 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
         status="new", status_history=[instructions.history_entry(None, "new", by)],
         payload=_stored_payload(data), notes=notes, **prop,
     )
+    # An introducer who is one of our active partners is credited with the introduction (services.referrals), when
+    # the sender vouches for the email; an unvouched match is left for head office to credit by hand.
+    match = referrals.active_partner_for_email(db, introducer["person_key"])
+    referrer = match if match is not None and introducer_vouched(introducer, client) else None
+    referrals.credit(instruction, referrer, referrals.VIA_INTRODUCER)
     db.add(instruction)
     db.flush()
     instruction.ref = Instruction.make_ref(instruction.id)
@@ -658,6 +698,9 @@ async def create_instruction(request: Request, db: Session = Depends(get_db),
     audit(db, None, "partner_api.property.create", f"instruction:{instruction.id}",
           f"via api client {client.name}: {instruction.ref} from {origin}; {instruction.outward}; {instruction.service_line}; "
           f"area {area.slug if area else 'none'}; partner {partner_id or 'head office'}; consent {consent_version}"
+          + (f"; referred by partner {referrer.id}" if referrer is not None else "")
+          + (f"; introducer email is partner {match.id}'s but the sender did not verify it, so it is not credited: "
+             "head office may credit it by hand" if match is not None and referrer is None else "")
           + (f"; {routed}" if routed else ""))
     db.commit()
     throttle_hit(cap_key)
@@ -673,7 +716,9 @@ def lookup_instruction(external_ref: str, db: Session = Depends(get_db),
     external_ref = external_ref.strip()
     if not external_ref or len(external_ref) > 200:
         raise _invalid("Pass the instruction's external_ref in the path.", "external_ref")
-    instruction = db.query(Instruction).filter(Instruction.external_ref == external_ref).first()
+    # Head office's own instructions (made from a lead) are not any sender's: the lookup answers as if none existed.
+    instruction = (None if instructions.head_office_ref(external_ref)
+                   else db.query(Instruction).filter(Instruction.external_ref == external_ref).first())
     if instruction is None:
         return _reply({"ok": True, "found": False, "instruction": None})
     return _reply({"ok": True, "found": True, "ref": instruction.ref, "instruction": instructions.api_record(instruction)})

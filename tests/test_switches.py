@@ -399,8 +399,9 @@ def test_migration_0005_keeps_todays_behaviour_and_comes_back_out(tmp_path):
             conn.execute(text("INSERT INTO leads (created_at, kind, name, phone, email, postcode, address, region, status, payload, "
                               "notes, source_page, updated_at) VALUES ('2026-10-01 09:00:00', :k, :n, '', '', 'TA1', '', "
                               "'england', 'new', :p, '', '', '2026-10-01 09:00:00')"), {"k": kind, "n": name, "p": json.dumps(payload)})
-    assert migrations.run_migrations(eng, quiet=True) == "upgraded"
-    assert migrations.current_revision(eng) == "0005_partner_services" == migrations.head_revision()
+    with eng.begin() as conn:
+        command.upgrade(migrations.alembic_config(conn), "0005_partner_services")
+    assert migrations.current_revision(eng) == "0005_partner_services"
     for column in inspect(eng).get_columns("partners"):
         if column["name"] in PARTNER_SERVICE_KEYS:
             assert not column["nullable"], column["name"]

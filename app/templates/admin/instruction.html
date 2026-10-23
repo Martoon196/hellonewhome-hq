@@ -35,6 +35,8 @@
         <dt>Received</dt><dd>{{ inst.created_at | uk("%d %b %Y %H:%M") }}</dd>
         <dt>Sender's reference</dt><dd><code>{{ inst.external_ref }}</code>{% if inst.origin_url %} · <a href="{{ inst.origin_url }}" target="_blank" rel="noopener">open at source ↗</a>{% endif %}</dd>
         <dt>Introducer</dt><dd>{% if inst.introducer_person_key or inst.introducer_pp_account_id or inst.introducer_kp_user_id %}{{ inst.introducer_person_key or "" }}{% if inst.introducer_pp_account_id %} · PP account {{ inst.introducer_pp_account_id }}{% endif %}{% if inst.introducer_kp_user_id %} · KP user {{ inst.introducer_kp_user_id }}{% endif %}{% else %}<span class="muted">none recorded</span>{% endif %}</dd>
+        <dt>Referred by</dt><dd>{% if inst.referrer %}<a href="/admin/partners/{{ inst.referrer.id }}">{{ referrer_label }}</a>{% else %}<span class="muted">no partner recorded</span>{% if introducer_match %}<br><span class="small">The introducer email is <a href="/admin/partners/{{ introducer_match.id }}">{{ introducer_match.name }}</a>'s ({{ introducer_match.referral_code }}), but it was not credited: the sending system had not verified that email, or head office cleared it. If the introduction was theirs, choose them under Referring partner below.</span>{% endif %}{% endif %}</dd>
+        {% if from_lead %}<dt>From lead</dt><dd><a href="/admin/leads/{{ from_lead }}">Lead #{{ from_lead }}</a></dd>{% endif %}
       </dl>
     </section>
     <section class="panel mt-2">
@@ -100,6 +102,14 @@
           {% for a in areas %}<option value="{{ a.id }}"{% if inst.area_id == a.id %} selected{% endif %}>{{ a.name }} ({{ a.status }}){% if a.is_hq %} - head office{% elif a.partner %} - {{ a.partner.name }}{% else %} - no partner{% endif %}</option>{% endfor %}
         </select>
         <span class="hint">Reassigning also moves the instruction to that area's partner (or head office).</span>
+      </div>
+      <div class="field mt-1">
+        <label for="referrer_id">Referring partner</label>
+        <select id="referrer_id" name="referrer_id">
+          <option value="none">Nobody</option>
+          {% for p in referrers %}<option value="{{ p.id }}"{% if inst.referrer_partner_id == p.id %} selected{% endif %}>{{ p.name }} ({{ p.referral_code }}){% if p.status != "active" %} - {{ p.status }}{% endif %}</option>{% endfor %}
+        </select>
+        <span class="hint">The partner who introduced this property. It counts under Referrals; set it by hand for an introduction made by phone or WhatsApp.</span>
       </div>
       <div class="field mt-1">
         <label for="notes">Notes</label>

@@ -20,10 +20,12 @@ The same models run on SQLite and Postgres, so a few rules hold throughout:
 """
 from __future__ import annotations
 
+import secrets
 from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, false, func, text, true
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, event, false, func, text,
+                        true)
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from .db import Base
 
@@ -31,6 +33,14 @@ from .db import Base
 def now() -> datetime:
     """The current time as naive UTC: the one form every timestamp column holds, on either engine."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+# Partner referral codes (revision 0006): six characters from an alphabet without look-alikes (no I, O, 0 or 1), so a
+# code read out over the phone or typed from a flyer comes out right. Stored upper-case; head office may replace one
+# with any 3 to 20 letters, digits and hyphens (services.referrals.code_problem).
+REFERRAL_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+REFERRAL_CODE_LENGTH = 6
+REFERRAL_CODE_MAX = 20
 
 
 class Setting(Base):
@@ -74,6 +84,12 @@ class Partner(Base):
     hmo_management_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
     shortlet_management_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
     commercial_management_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false(), nullable=False)
+    # The partner's referral code (revision 0006): ?ref=<code> on any public page credits the enquiries that follow to
+    # this partner (services.referrals). Unique; given to every partner when the row is first flushed (the listener at
+    # the foot of this module) and editable by head office on the partner page, where the code given up is kept in
+    # retired_referral_codes so it is never given to anyone else. Nullable in the schema only so the migration could
+    # add it to existing rows before filling them; no row is left without one.
+    referral_code: Mapped[str | None] = mapped_column(String(REFERRAL_CODE_MAX), nullable=True, unique=True, index=True)
 
     areas: Mapped[list["Area"]] = relationship(back_populates="partner")
     users: Mapped[list["User"]] = relationship(back_populates="partner")
@@ -208,9 +224,19 @@ class Lead(Base):
     # or "" for one any partner can take (a tenant find, a general question). It decides the partner and what the
     # partner's portal shows when they do not offer the service.
     service: Mapped[str] = mapped_column(String(30), default="", server_default=text("''"), nullable=False)
+    # The partner who referred the enquiry (revision 0006), which is not the partner it is routed to: the first is who
+    # introduced the landlord (their ?ref= link, or head office by hand), the second is who serves the area. Head
+    # office works out any introducer pay by hand from these (Admin -> Referrals); nothing here is a fee.
+    # referrer_via says how it was recorded: "link" (the hnh_ref cookie) or "head office" (set on the lead page).
+    referrer_partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id"), nullable=True, index=True)
+    referrer_via: Mapped[str] = mapped_column(String(20), default="", server_default=text("''"), nullable=False)
+    # Group HQ's franchise seller code from ?seller=<code> (the hnh_seller cookie), kept on a partner-programme
+    # application so head office can credit the seller in Group HQ. "" for every other lead.
+    seller_code: Mapped[str] = mapped_column(String(24), default="", server_default=text("''"), nullable=False)
 
     area: Mapped[Area | None] = relationship()
-    partner: Mapped[Partner | None] = relationship()
+    partner: Mapped[Partner | None] = relationship(foreign_keys=[partner_id])
+    referrer: Mapped[Partner | None] = relationship(foreign_keys=[referrer_partner_id])
 
 
 class Resource(Base):
@@ -306,9 +332,15 @@ class Instruction(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+    # The partner who introduced the property (revision 0006), as on Lead: "introducer" when the sender's introducer
+    # email is an active partner's and the sender vouched for it (partner_api.introducer_vouched), "lead" when it was
+    # made from a referred lead, "head office" when set by hand.
+    referrer_partner_id: Mapped[int | None] = mapped_column(ForeignKey("partners.id"), nullable=True, index=True)
+    referrer_via: Mapped[str] = mapped_column(String(20), default="", server_default=text("''"), nullable=False)
 
     area: Mapped[Area | None] = relationship()
-    partner: Mapped[Partner | None] = relationship()
+    partner: Mapped[Partner | None] = relationship(foreign_keys=[partner_id])
+    referrer: Mapped[Partner | None] = relationship(foreign_keys=[referrer_partner_id])
 
     @staticmethod
     def make_ref(instruction_id: int) -> str:
@@ -353,3 +385,38 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(80))
     target: Mapped[str] = mapped_column(String(300), default="")
     detail: Mapped[str] = mapped_column(Text, default="")
+
+
+class RetiredReferralCode(Base):
+    """A referral code a partner gave up when head office changed it (revision 0006). It stays with that partner for
+    good: no other partner may be given it, so a flyer, a message or a 90-day hnh_ref cookie that still carries the
+    old code can never credit someone else. It credits nobody (services.referrals), and the partner may take it back."""
+    __tablename__ = "retired_referral_codes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(REFERRAL_CODE_MAX), unique=True, index=True)
+    partner_id: Mapped[int] = mapped_column(ForeignKey("partners.id"), index=True)
+    retired_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+# ---- referral codes for new partners -------------------------------------------------------------------------------
+def new_referral_code(session: Session, taken: set[str] | frozenset[str] = frozenset()) -> str:
+    """A referral code no partner holds or has held and not in `taken` (codes handed out earlier in the same flush).
+    Six characters from 32 give about a billion codes, so the first draw is almost always free; the loop is the
+    guarantee."""
+    with session.no_autoflush:
+        while True:
+            code = "".join(secrets.choice(REFERRAL_CODE_ALPHABET) for _ in range(REFERRAL_CODE_LENGTH))
+            if (code not in taken and session.query(Partner.id).filter(Partner.referral_code == code).first() is None
+                    and session.query(RetiredReferralCode.id).filter(RetiredReferralCode.code == code).first() is None):
+                return code
+
+
+@event.listens_for(Session, "before_flush")
+def _give_new_partners_a_referral_code(session: Session, flush_context, instances) -> None:
+    """Every partner gets a referral code the moment it is first written, whichever path creates it (the admin form,
+    the Partner API, the seed or a script), so no partner is ever without a link to share."""
+    taken: set[str] = set()
+    for obj in list(session.new):
+        if isinstance(obj, Partner) and not obj.referral_code:
+            obj.referral_code = new_referral_code(session, taken)
+            taken.add(obj.referral_code)
