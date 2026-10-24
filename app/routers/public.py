@@ -15,7 +15,7 @@ from .. import config
 from ..auth import check_origin, client_ip, require_partner, throttle_check, throttle_hit
 from ..db import get_db
 from ..models import Area, Lead, Resource, User
-from ..services import content, kit, mail, ordris_listings, routing, settings, vat
+from ..services import content, kit, mail, ordris_listings, referrals, routing, settings, vat
 from ..services.postcodes import extract_postcode, locate
 
 log = logging.getLogger("hnh.public")
@@ -133,7 +133,10 @@ def render_public(request: Request, template: str, ctx: dict, status_code: int =
     if settings.vat_registered(base["s"]):
         # The "no VAT" claims live in page fragments, area content and seeded area facts as well as in templates;
         # once the company is VAT-registered every one of them is rewritten as VAT-inclusive (services.vat).
-        return HTMLResponse(vat.wording(response.body.decode("utf-8"), True), status_code=response.status_code)
+        response = HTMLResponse(vat.wording(response.body.decode("utf-8"), True), status_code=response.status_code)
+    # ?ref=<partner code> and ?seller=<Group HQ seller code> on any public page are remembered for 90 days
+    # (services.referrals), so the enquiry that follows is credited to whoever sent the visitor.
+    referrals.remember(request, db, response)
     return response
 
 
@@ -786,6 +789,11 @@ async def api_lead(request: Request, db: Session = Depends(get_db)):
         payload=payload,
         source_page=str(data.get("_page", ""))[:200],
     )
+    # Who sent the visitor: the active partner the hnh_ref cookie names (services.referrals). A partner-programme
+    # application also keeps Group HQ's seller code from the hnh_seller cookie.
+    referrals.credit(lead, referrals.referrer_from_cookie(request, db), referrals.VIA_LINK)
+    if kind == "partner_application":
+        lead.seller_code = referrals.seller_from_cookie(request)
     db.add(lead)
     db.commit()
     throttle_hit(rate_key)
@@ -811,6 +819,9 @@ def _notify(lead: Lead, area: Area | None, s: dict) -> None:
     else:
         subject = f"[HNH lead] {KIND_SUBJECTS.get(lead.kind, lead.kind)}: {lead.name} ({lead.postcode or 'no postcode'})"
     lines = [f"{k}: {v}" for k, v in (lead.payload or {}).items()]
+    if lead.seller_code:
+        # Hello New Home sends nothing to Group HQ: head office enters this code on the franchise opportunity there.
+        lines.append(f"Group HQ seller code: {lead.seller_code}")
     lines.append(f"Area: {area.name if area else 'not covered'} ({lead.region})")
     lines.append(f"Routed to: {lead.partner.name if lead.partner else 'head office'}")
     if lead.partner is None and lead.notes:

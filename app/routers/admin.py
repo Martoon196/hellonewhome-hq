@@ -18,6 +18,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData, UploadFile
 
@@ -26,8 +27,8 @@ from ..auth import (audit, check_origin, clear_session, current_user, generate_p
                     normalise_email, require_admin, safe_next, set_session, throttle_hit, touch_login, verify_password)
 from ..db import get_db
 from ..models import Announcement, Area, AuditLog, Instruction, Lead, Outbox, Partner, Resource, User
-from ..services import instructions, ordris_listings, ordris_sync, routing, settings
-from ..services.postcodes import normalise as normalise_postcode, region_for
+from ..services import instructions, ordris_listings, ordris_sync, referrals, routing, settings
+from ..services.postcodes import locate, normalise as normalise_postcode, region_for
 from ..services.times import fmt_uk
 
 router = APIRouter(prefix="/admin", dependencies=[Depends(check_origin)])
@@ -593,11 +594,11 @@ def _partner_vals(p: Partner | None) -> dict:
         return {"name": "", "first_name": "", "email": "", "phone": "", "whatsapp": "", "whatsapp_display": "", "bio": "",
                 "tier": "area", "status": "pending", "units_managed": 0, "notes": "", "areas": [], "commercial_enabled": False,
                 "residential_management_enabled": True, "hmo_management_enabled": True,
-                "shortlet_management_enabled": True, "commercial_management_enabled": False}
+                "shortlet_management_enabled": True, "commercial_management_enabled": False, "referral_code": ""}
     return {"name": p.name, "first_name": p.first_name, "email": p.email, "phone": p.phone, "whatsapp": p.whatsapp,
             "whatsapp_display": p.whatsapp_display, "bio": p.bio, "tier": p.tier, "status": p.status,
             "units_managed": p.units_managed, "notes": p.notes, "areas": [a.id for a in p.areas],
-            "commercial_enabled": bool(p.commercial_enabled),
+            "commercial_enabled": bool(p.commercial_enabled), "referral_code": p.referral_code or "",
             **{key: bool(getattr(p, key)) for key in PARTNER_SERVICE_KEYS}}
 
 
@@ -607,6 +608,9 @@ def _partner_vals_from_form(form: FormData, partner: Partner | None = None) -> d
     vals["units_managed"] = _int(_s(form, "units_managed"), 0)
     vals["areas"] = [_int(v, -1) for v in form.getlist("areas") if isinstance(v, str)]
     vals["commercial_enabled"] = form.get("commercial_enabled") == "1"
+    # A page rendered before the referral code field existed posts none: the partner keeps the code they have.
+    vals["referral_code"] = (referrals.normalise_code(_s(form, "referral_code", limit=60)) if "referral_code" in form
+                             else (partner.referral_code or "" if partner is not None else ""))
     # The form says it carries the service boxes (an unticked box sends nothing); a post without that marker, from a
     # page rendered before the boxes existed, leaves the partner's services as they are.
     if form.get("services_form") == "1":
@@ -671,6 +675,18 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
     if len(selected) != len(set(area_ids)):
         errors.append("One of the chosen areas no longer exists.")
 
+    # The referral code: required on an existing partner (changing it is a deliberate act, since every link already
+    # shared with the old code stops crediting them); a new partner left blank is given one when the row is written.
+    # A code another partner holds, or gave up, is refused (services.referrals.code_taken).
+    code = vals["referral_code"]
+    if code:
+        problem = referrals.code_problem(code) or referrals.code_taken(
+            db, code, exclude_id=partner.id if partner is not None else None)
+        if problem:
+            errors.append(problem)
+    elif partner is not None:
+        errors.append("A referral code is required. Type a new one to change it.")
+
     photo = form.get("photo")
     photo_ext = ""
     if _has_upload(photo):
@@ -681,6 +697,7 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
         return _partner_form(request, db, vals, partner, error=" ".join(errors), status=400)
 
     action = "partner.update"
+    code_before = (partner.referral_code or "") if partner is not None else ""
     commercial_before = bool(partner.commercial_enabled) if partner is not None else False
     services_before = {key: bool(getattr(partner, key)) for key in PARTNER_SERVICE_KEYS} if partner is not None else {}
     if partner is None:
@@ -701,6 +718,10 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
     partner.status = vals["status"]
     partner.units_managed = vals["units_managed"]
     partner.notes = vals["notes"]
+    if code and action == "partner.create":
+        partner.referral_code = code
+    elif code:
+        referrals.change_code(db, partner, code)          # the code it replaces stays theirs, never anyone else's
     db.add(partner)
     db.flush()
 
@@ -740,9 +761,12 @@ async def _save_partner(request: Request, db: Session, user: User, partner: Part
         if action == "partner.update" and services_before[key] != now_on:
             note += f" (was {'on' if services_before[key] else 'off'})"
         service_notes.append(note)
+    code_note = f"referral code {partner.referral_code}"
+    if action == "partner.update" and code_before != partner.referral_code:
+        code_note += f" (was {code_before or 'none'})"
     audit(db, user, action, f"partner:{partner.id}",
           f"{partner.name}; status {partner.status}; tier {partner.tier}; areas {', '.join(a.name for a in selected) or 'none'}; "
-          f"{commercial_note}; {'; '.join(service_notes)}")
+          f"{commercial_note}; {'; '.join(service_notes)}; {code_note}")
     db.commit()
     return _go(f"/admin/partners/{partner.id}", ok="Partner saved.")
 
@@ -868,7 +892,28 @@ def _hq_leads(db: Session):
 def _lead_filters(request: Request) -> dict:
     qp = request.query_params
     return {"status": qp.get("status", "").strip(), "kind": qp.get("kind", "").strip(),
-            "area": qp.get("area", "").strip(), "partner": qp.get("partner", "").strip(), "q": qp.get("q", "").strip()[:80]}
+            "area": qp.get("area", "").strip(), "partner": qp.get("partner", "").strip(),
+            "referrer": qp.get("referrer", "").strip(), "q": qp.get("q", "").strip()[:80]}
+
+
+def _referrer_filter(q, column, value: str):
+    """The Referrer filter on the leads and instructions lists: "any" (referred by any partner), "none" (nobody), or
+    one partner's id."""
+    if value == "any":
+        return q.filter(column.isnot(None))
+    if value == "none":
+        return q.filter(column.is_(None))
+    if value.isdigit():
+        return q.filter(column == int(value))
+    return q
+
+
+def _referrer_choices(db: Session, include: Partner | None = None) -> list[Partner]:
+    """Partners a lead or instruction can be credited to, for the filters and the by-hand select: every real partner
+    (a seeded stand-in for an unfilled area is left out), by name, plus `include` (the record's current referrer), so
+    saving a page never clears a referrer the list would otherwise leave out."""
+    return [p for p in db.query(Partner).order_by(Partner.name, Partner.id).all()
+            if not (p.name.endswith("(to be appointed)") and not p.email) or (include is not None and p.id == include.id)]
 
 
 def _lead_query(db: Session, f: dict):
@@ -887,6 +932,7 @@ def _lead_query(db: Session, f: dict):
         q = q.filter(Lead.partner_id.is_(None))
     elif f["partner"].isdigit():
         q = q.filter(Lead.partner_id == int(f["partner"]))
+    q = _referrer_filter(q, Lead.referrer_partner_id, f["referrer"])
     if f["q"]:
         like = _like(f["q"])
         clauses = [Lead.name.ilike(like, escape="\\"), Lead.phone.ilike(like, escape="\\"),
@@ -919,7 +965,7 @@ def leads_list(request: Request, db: Session = Depends(get_db), user: User = Dep
         "db": db, "section": "leads", "leads": leads, "filters": f, "areas": areas, "total": total, "page": page, "pages": pages,
         "statuses": LEAD_STATUSES, "kinds": LEAD_KINDS, "kind_labels": LEAD_KIND_LABELS, "qs": _qs(f),
         "qs_prev": _qs(f, page=page - 1), "qs_next": _qs(f, page=page + 1), "page_size": PAGE_SIZE,
-        "hq_hours": hq_hours, "hq_cutoff": hq_cutoff,
+        "hq_hours": hq_hours, "hq_cutoff": hq_cutoff, "referrers": _referrer_choices(db),
     }
     ctx.update(_flash(request))
     return render_admin(request, "admin/leads.html", ctx)
@@ -939,13 +985,16 @@ def leads_export(request: Request, db: Session = Depends(get_db), user: User = D
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["id", "created", "updated", "kind", "status", "name", "phone", "email", "postcode", "address", "region",
-                "area", "partner", "source_page", "notes", "payload"])
+                "area", "partner", "source_page", "notes", "payload", "referrer", "referrer_code", "referred_via",
+                "seller_code"])
     for l in leads:
         w.writerow([_csv_cell(v) for v in (
             l.id, fmt_uk(l.created_at, "%Y-%m-%d %H:%M"), fmt_uk(l.updated_at, "%Y-%m-%d %H:%M"),
             l.kind, l.status, l.name, l.phone, l.email, l.postcode, l.address, l.region,
             l.area.name if l.area else "not covered", l.partner.name if l.partner else "", l.source_page, l.notes,
             json.dumps(l.payload or {}, ensure_ascii=False),
+            l.referrer.name if l.referrer else "", l.referrer.referral_code if l.referrer else "", l.referrer_via,
+            l.seller_code,
         )])
     audit(db, user, "lead.export", "leads", f"{len(leads)} rows; filters {json.dumps({k: v for k, v in f.items() if v})}")
     db.commit()
@@ -961,18 +1010,46 @@ def lead_detail(lead_id: int, request: Request, db: Session = Depends(get_db), u
     timeline = (db.query(AuditLog, User.email).outerjoin(User, User.id == AuditLog.user_id)
                 .filter(AuditLog.target == f"lead:{lead.id}").order_by(AuditLog.id.desc()).all())
     payload = [(k, v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)) for k, v in (lead.payload or {}).items()]
+    made = db.query(Instruction).filter(Instruction.external_ref == _lead_instruction_ref(lead)).first()
     ctx = {"db": db, "section": "leads", "lead": lead, "areas": areas, "timeline": timeline, "payload": payload,
-           "statuses": LEAD_STATUSES}
+           "statuses": LEAD_STATUSES, "referrers": _referrer_choices(db, lead.referrer),
+           "referrer_label": referrals.describe(lead),
+           "instruction": made, "can_instruct": made is None and lead.kind in LEAD_INSTRUCTION_KINDS}
     ctx.update(_flash(request))
     return render_admin(request, "admin/lead.html", ctx)
 
 
+def _set_referrer(db: Session, record, raw: str, changes: list[str]) -> str:
+    """Apply the by-hand Referring partner select of the lead and instruction pages. A post without the field (a page
+    rendered before it existed) changes nothing; "none" (the select's Nobody) clears the referrer; an id credits that
+    partner, recorded as set by head office. Returns an error message, or ""."""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    current = record.referrer_partner_id
+    if raw == "none":
+        if current is not None:
+            changes.append(f"referrer {record.referrer.name if record.referrer else current} removed")
+            referrals.credit(record, None, "")
+        return ""
+    partner = db.get(Partner, _int(raw, -1))
+    if partner is None:
+        return "That partner no longer exists."
+    if partner.id != current:
+        changes.append(f"referrer to {partner.name} ({partner.referral_code})")
+        referrals.credit(record, partner, referrals.VIA_HEAD_OFFICE)
+    return ""
+
+
 @router.post("/leads/{lead_id}")
 def lead_update(lead_id: int, status: str = Form(""), notes: str = Form(""), area_id: str = Form(""),
-                db: Session = Depends(get_db), user: User = Depends(require_admin)):
+                referrer_id: str | None = Form(None), db: Session = Depends(get_db), user: User = Depends(require_admin)):
     lead = _get_or_404(db, Lead, lead_id)
     back = f"/admin/leads/{lead.id}"
     changes: list[str] = []
+    problem = _set_referrer(db, lead, referrer_id, changes)
+    if problem:
+        return _go(back, err=problem)
     if status:
         if status not in LEAD_STATUSES:
             return _go(back, err="Unknown status.")
@@ -1015,6 +1092,95 @@ def lead_update(lead_id: int, status: str = Form(""), notes: str = Form(""), are
     return _go(back, ok="Lead updated.")
 
 
+# A landlord's own enquiry can become a property instruction (Admin -> the lead -> Create instruction), so a property
+# that arrived through the site joins the same pipeline, and the same Ordris step, as one sent by Property Predator or
+# Key Properties, and keeps the lead's referring partner. Only enquiries about a property qualify.
+LEAD_INSTRUCTION_KINDS = ("rent_review", "sa_appraisal", "commercial_appraisal", "contact", "enquiry")
+# The service line an instruction made from a lead carries, from the service the lead was for (services.routing).
+LEAD_SERVICE_LINES = {routing.SHORTLET_MANAGEMENT: "sa", routing.HMO_MANAGEMENT: "hmo",
+                      routing.COMMERCIAL_LETTING: "commercial", routing.COMMERCIAL_MANAGEMENT: "commercial"}
+# What consent_text_version records for an instruction made from a lead: the landlord's own enquiry through the site's
+# form, whose privacy note says the details are used to contact them about it. No other controller is involved.
+WEB_LEAD_CONSENT = "hnh-web-enquiry"
+
+
+def _lead_instruction_ref(lead: Lead) -> str:
+    """The external_ref an instruction made from this lead carries: what makes a second press find the first one."""
+    return f"{instructions.HEAD_OFFICE_REF_PREFIX}{lead.id}"
+
+
+def _lead_bedrooms(payload: dict) -> int | None:
+    digits = re.sub(r"[^0-9]", "", str((payload or {}).get("bedrooms") or ""))
+    return min(int(digits[:3]), 50) if digits else None
+
+
+@router.post("/leads/{lead_id}/instruction")
+def lead_instruction(lead_id: int, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    """Create the property instruction for a landlord's enquiry: the landlord, the property and its routing from the
+    lead, origin "web", status new, and the lead's referring partner (referrer_via "lead"). Pressing it again opens
+    the instruction already made. No email is sent: the lead's partner already has the enquiry."""
+    lead = _get_or_404(db, Lead, lead_id)
+    back = f"/admin/leads/{lead.id}"
+    existing = db.query(Instruction).filter(Instruction.external_ref == _lead_instruction_ref(lead)).first()
+    if existing is not None:
+        return _already_instructed(existing)
+    if lead.kind not in LEAD_INSTRUCTION_KINDS:
+        return _go(back, err="Only a landlord's enquiry about a property can become an instruction.")
+    if not (lead.name or "").strip() or not ((lead.email or "").strip() or (lead.phone or "").strip()):
+        return _go(back, err="The lead needs a name and an email address or phone number before it can become an instruction.")
+    payload = lead.payload or {}
+    typed = str(payload.get("postcode") or "").strip()
+    location = locate(db, typed) if typed else None
+    if location is None:
+        location = locate(db, lead.postcode or "")
+    if location is None:
+        return _go(back, err="The lead carries no UK postcode for the property, so it cannot be placed. Ask the landlord "
+                             "for it first.")
+    postcode = re.sub(r"\s+", " ", typed.upper()).strip()[:16] if typed and normalise_postcode(typed) else location.outward
+    service_line = LEAD_SERVICE_LINES.get(routing.service_of(lead), "residential")
+    area = lead.area or location.area
+    service = routing.instruction_service(service_line)
+    partner_id = routing.partner_id_for(area, service=service)
+    routed = routing.routing_note(area, service=service)
+    note = f"Made from lead #{lead.id}."
+    inst = Instruction(
+        external_ref=_lead_instruction_ref(lead), origin_system="web", origin_url=f"{config.BASE_URL}{back}",
+        landlord_name=lead.name[:120], landlord_email=(lead.email or "")[:200], landlord_phone=(lead.phone or "")[:40],
+        consent_at=lead.created_at, consent_text_version=WEB_LEAD_CONSENT,
+        address=(lead.address or str(payload.get("address") or ""))[:300], postcode=postcode, outward=location.outward,
+        bedrooms=_lead_bedrooms(payload), property_type=str(payload.get("type") or payload.get("property_use") or "")[:40],
+        service_line=service_line, area_id=area.id if area else None, partner_id=partner_id, status="new",
+        status_history=[instructions.history_entry(None, "new", f"admin:{user.email}", note)],
+        payload={"from_lead": lead.id, "lead_kind": lead.kind, "lead_payload": payload},
+        notes="\n".join(x for x in (note, routed) if x),
+    )
+    referrals.credit(inst, lead.referrer, referrals.VIA_LEAD)
+    try:
+        db.add(inst)
+        db.flush()
+        inst.ref = Instruction.make_ref(inst.id)
+        db.add(inst)
+        audit(db, user, "instruction.from_lead", f"instruction:{inst.id}",
+              f"{inst.ref} from lead #{lead.id}; {inst.outward}; {inst.service_line}; area {area.slug if area else 'none'}; "
+              f"partner {partner_id or 'head office'}"
+              + (f"; referred by partner {lead.referrer_partner_id}" if lead.referrer_partner_id else "")
+              + (f"; {routed}" if routed else ""))
+        audit(db, user, "lead.instruction", f"lead:{lead.id}", f"instruction {inst.ref} created")
+        db.commit()
+    except IntegrityError:
+        # A second press (or a second admin) made it first: the unique external_ref refused this one. Open theirs.
+        db.rollback()
+        existing = db.query(Instruction).filter(Instruction.external_ref == _lead_instruction_ref(lead)).first()
+        if existing is None:
+            raise
+        return _already_instructed(existing)
+    return _go(f"/admin/instructions/{inst.id}", ok=f"Instruction {inst.ref} created from the lead.")
+
+
+def _already_instructed(existing: Instruction) -> RedirectResponse:
+    return _go(f"/admin/instructions/{existing.id}", ok=f"This lead is already instruction {existing.ref}.")
+
+
 # ============================================================================
 # 3b. Property instructions ("Let this property with Hello New Home")
 # ============================================================================
@@ -1022,7 +1188,7 @@ def _instruction_filters(request: Request) -> dict:
     qp = request.query_params
     return {"status": qp.get("status", "").strip(), "area": qp.get("area", "").strip(),
             "origin": qp.get("origin", "").strip(), "service": qp.get("service", "").strip().lower(),
-            "q": qp.get("q", "").strip()[:80]}
+            "referrer": qp.get("referrer", "").strip(), "q": qp.get("q", "").strip()[:80]}
 
 
 def _instruction_query(db: Session, f: dict):
@@ -1039,6 +1205,7 @@ def _instruction_query(db: Session, f: dict):
         q = q.filter(Instruction.origin_system == f["origin"])
     if f["service"] in instructions.SERVICE_LINES:
         q = q.filter(Instruction.service_line == f["service"])
+    q = _referrer_filter(q, Instruction.referrer_partner_id, f["referrer"])
     if f["q"]:
         like = _like(f["q"])
         clauses = [Instruction.ref.ilike(like, escape="\\"), Instruction.external_ref.ilike(like, escape="\\"),
@@ -1076,7 +1243,11 @@ def instructions_list(request: Request, db: Session = Depends(get_db), user: Use
         "qs_prev": _qs(f, page=page - 1), "qs_next": _qs(f, page=page + 1), "page_size": PAGE_SIZE,
         "waiting": waiting, "ordris_configured": ordris_sync.configured(), "ordris_enabled": ordris_sync.enabled(db),
         # The status line for the homes-to-rent block on the area pages: when this instance last read Ordris.
-        "listings_status": ordris_listings.status(),
+        "listings_status": ordris_listings.status(), "referrers": _referrer_choices(db),
+        # An uncredited instruction whose introducer email is an active partner's (the sender had not verified it,
+        # or head office cleared it) shows that partner in the Referrer column as a match to check.
+        "introducer_matches": referrals.active_partners_by_email(db)
+        if any(not i.referrer_partner_id and i.introducer_person_key for i in rows) else {},
     })
     ctx.update(_flash(request))
     return render_admin(request, "admin/instructions.html", ctx)
@@ -1094,7 +1265,11 @@ def instruction_detail(instruction_id: int, request: Request, db: Session = Depe
     ctx = _instruction_ctx(db, {
         "inst": inst, "areas": areas, "timeline": timeline, "outbox": outbox, "payload": payload,
         "history": list(reversed(inst.status_history or [])), "ordris_configured": ordris_sync.configured(),
-        "ordris_enabled": ordris_sync.enabled(db),
+        "ordris_enabled": ordris_sync.enabled(db), "referrers": _referrer_choices(db, inst.referrer),
+        "referrer_label": referrals.describe(inst),
+        "introducer_match": (referrals.active_partner_for_email(db, inst.introducer_person_key)
+                             if not inst.referrer_partner_id and inst.introducer_person_key else None),
+        "from_lead": (inst.payload or {}).get("from_lead") if instructions.head_office_ref(inst.external_ref) else None,
         "can_send": inst.status in ("instructed", "let") and not inst.sent_to_ordris
                     and not any(o.state in ("pending", "failed") for o in outbox),
     })
@@ -1112,10 +1287,14 @@ def _ordris_flash(result: tuple[bool, str] | None) -> tuple[str, str]:
 
 @router.post("/instructions/{instruction_id}")
 def instruction_update(instruction_id: int, status: str = Form(""), notes: str = Form(""), area_id: str = Form(""),
-                       db: Session = Depends(get_db), user: User = Depends(require_admin)):
+                       referrer_id: str | None = Form(None), db: Session = Depends(get_db),
+                       user: User = Depends(require_admin)):
     inst = _get_or_404(db, Instruction, instruction_id)
     back = f"/admin/instructions/{inst.id}"
     changes: list[str] = []
+    problem = _set_referrer(db, inst, referrer_id, changes)
+    if problem:
+        return _go(back, err=problem)
     previous = inst.status
     if status:
         if status not in instructions.STATUSES:
@@ -1191,6 +1370,62 @@ def instruction_resend(instruction_id: int, outbox_id: int, db: Session = Depend
     audit(db, user, "instruction.ordris.resend", f"instruction:{inst.id}", f"outbox:{row.id}: {message}")
     db.commit()
     return _go(back, ok=message) if sent else _go(back, err=f"Not sent: {message}")
+
+
+# ============================================================================
+# 3c. Referrals: leads and instructions by referring partner and month
+# ============================================================================
+# Hello New Home holds no fee figures, so nothing here is commission: head office works out any introducer pay by hand
+# from this list (services.referrals). The page counts; the CSV has one row per referred lead or instruction.
+def _referral_filters(request: Request) -> dict:
+    qp = request.query_params
+    partner = qp.get("partner", "").strip()
+    return {"partner": partner if partner.isdigit() else "", "from": referrals.parse_month(qp.get("from", "")),
+            "to": referrals.parse_month(qp.get("to", ""))}
+
+
+def _referral_rows(db: Session, f: dict) -> list[dict]:
+    return referrals.referred_records(db, partner_id=int(f["partner"]) if f["partner"] else None,
+                                      month_from=f["from"], month_to=f["to"])
+
+
+def _referral_what(row: dict) -> str:
+    if row["record"] == "lead":
+        return LEAD_KIND_LABELS.get(row["what"], row["what"])
+    return instructions.SERVICE_LINE_LABELS.get(row["what"], row["what"])
+
+
+@router.get("/referrals", response_class=HTMLResponse)
+def referrals_page(request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    f = _referral_filters(request)
+    rows = _referral_rows(db, f)
+    ctx = {"db": db, "section": "referrals", "filters": f, "qs": _qs(f), "summary": referrals.monthly_summary(rows),
+           "total": len(rows), "partners": _referrer_choices(db)}
+    ctx.update(_flash(request))
+    return render_admin(request, "admin/referrals.html", ctx)
+
+
+@router.get("/referrals/export.csv")
+def referrals_export(request: Request, db: Session = Depends(get_db), user: User = Depends(require_admin)):
+    f = _referral_filters(request)
+    rows = _referral_rows(db, f)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["month", "referrer_id", "referrer", "referral_code", "record", "reference", "created", "type", "area",
+                "postcode", "status", "routed_to", "referred_via", "seller_code"])
+    for r in rows:
+        partner = r["referrer"]
+        w.writerow([_csv_cell(v) for v in (
+            r["month"], partner.id, partner.name, partner.referral_code, r["record"], r["ref"],
+            fmt_uk(r["created_at"], "%Y-%m-%d %H:%M"), _referral_what(r), r["area"] or "not covered", r["postcode"],
+            r["status"], r["routed_to"], r["via"], r["seller_code"],
+        )])
+    audit(db, user, "referrals.export", "referrals",
+          f"{len(rows)} rows; filters {json.dumps({k: v for k, v in f.items() if v})}")
+    db.commit()
+    filename = f"referrals-{datetime.utcnow():%Y%m%d-%H%M}.csv"
+    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"})
 
 
 # ============================================================================

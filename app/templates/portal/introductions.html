@@ -1,0 +1,82 @@
+{% extends "portal/base.html" %}
+{% block head %}<style>
+  .ref-link { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .ref-link input { flex: 1 1 22rem; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .92rem; }
+  .ref-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; letter-spacing: .06em; }
+  .more-links { list-style: none; padding: 0; margin: .6rem 0 0; display: grid; gap: .5rem; }
+  .more-links li { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .more-links input { flex: 1 1 18rem; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .85rem; }
+  .more-links span { min-width: 12rem; font-weight: 700; font-size: .9rem; }
+</style>{% endblock %}
+{% block content %}
+<div class="page-title">
+  <span class="eyebrow">Introductions</span>
+  <h1>Your referral link and introductions</h1>
+  <p class="help">Share your link with landlords, owners and anyone thinking of joining as a partner. When they open a Hello New Home page through it, the site remembers your code in that browser for {{ cookie_days }} days, and an enquiry they send through one of the site's forms in that time is recorded as your introduction, as long as your partner account is active when it arrives. If they open another partner's link after yours, the later link is the one that counts. An introduction made by phone or WhatsApp is recorded by head office: tell them who you introduced.</p>
+</div>
+
+{% if not partner %}
+<section class="panel"><p class="muted">This login has no partner record, so it has no referral link. Partners see theirs here.</p></section>
+{% else %}
+<section class="panel" id="referral-link">
+  <h2>Your referral link</h2>
+  <div class="ref-link">
+    <label class="sr" for="ref-link-url">Your referral link</label>
+    <input id="ref-link-url" type="text" value="{{ link }}" readonly>
+    <button type="button" class="btn btn-primary btn-sm copy-btn" data-copy-target="#ref-link-url">Copy</button>
+  </div>
+  <p class="small muted mt-1">Your code is <span class="ref-code">{{ code }}</span>. It works on any page of the site: add <code>?ref={{ code }}</code> to the end of the address, or <code>&amp;ref={{ code }}</code> when the address already has a <code>?</code> in it. The links below are ready to copy.</p>
+  {% if links %}
+  <h3 class="mt-1">Links to particular pages</h3>
+  <ul class="more-links">
+    {% for l in links %}
+    <li><span>{{ l.label }}</span><label class="sr" for="ref-more-{{ loop.index }}">{{ l.label }}</label><input id="ref-more-{{ loop.index }}" type="text" value="{{ l.url }}" readonly><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#ref-more-{{ loop.index }}">Copy</button></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <p class="help mt-1">A property you send through Property Predator or Key Properties is recorded as your introduction too, when the introducer email is the one on your partner record and the system you sent it from has verified that email; otherwise head office checks it and records it by hand. Introductions are recorded while your partner account is active. Never offer a landlord a payment for a referral.</p>
+</section>
+
+<section class="panel mt-2" id="introductions">
+  <h2>Your introductions</h2>
+  <p class="help">Where each one stands. Head office looks after the people you introduce, so their details stay with the team serving them; anything due to you is worked out by head office and paid under your partner agreement.</p>
+  <h3>Properties</h3>
+  {% if insts %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>When</th><th>Ref</th><th>Service</th><th>Where</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for i in insts %}
+    <tr>
+      <td class="nowrap">{{ i.created_at | uk("%d %b %Y") }}</td>
+      <td>{{ i.ref }}</td>
+      <td>{{ i.what }}</td>
+      <td>{{ i.area or "not covered yet" }} <span class="small muted">{{ i.outward }}</span></td>
+      <td><span class="status status-{{ i.status }}">{{ i.status_label }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">No properties yet.</p>{% endif %}
+  <h3 class="mt-1">Enquiries</h3>
+  {% if leads %}
+  <div class="table-scroll">
+  <table class="data">
+    <thead><tr><th>When</th><th>What</th><th>Where</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for l in leads %}
+    <tr>
+      <td class="nowrap">{{ l.created_at | uk("%d %b %Y") }}</td>
+      <td>{{ l.what }}</td>
+      <td>{{ l.area or "not covered yet" }} <span class="small muted">{{ l.outward }}</span></td>
+      <td><span class="status status-{{ l.status }}">{{ l.status }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p class="muted">No enquiries through your link yet.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

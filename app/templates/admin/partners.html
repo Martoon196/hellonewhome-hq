@@ -11,7 +11,7 @@
 <section class="panel">
   <div class="table-scroll">
   <table class="data">
-    <thead><tr><th>Name</th><th>Status</th><th>Tier</th><th>Areas</th><th>Email</th><th>WhatsApp</th><th>Login</th><th>Units</th></tr></thead>
+    <thead><tr><th>Name</th><th>Status</th><th>Tier</th><th>Areas</th><th>Email</th><th>WhatsApp</th><th>Login</th><th>Units</th><th>Referral code</th></tr></thead>
     <tbody>
     {% for p in partners %}
     {% set login = p.users|selectattr("role", "equalto", "partner")|list|first %}
@@ -24,9 +24,10 @@
       <td>{{ p.whatsapp_display or p.whatsapp or "" }}</td>
       <td>{% if login %}{% if login.is_active %}Yes{% else %}<span class="muted">Inactive</span>{% endif %}{% if login.must_change_password %} <span class="small muted">(first login pending)</span>{% endif %}{% else %}<span class="muted">No</span>{% endif %}</td>
       <td>{{ p.units_managed }}</td>
+      <td><code>{{ p.referral_code or "" }}</code></td>
     </tr>
     {% else %}
-    <tr><td colspan="8" class="muted">No partners yet.</td></tr>
+    <tr><td colspan="9" class="muted">No partners yet.</td></tr>
     {% endfor %}
     </tbody>
   </table>

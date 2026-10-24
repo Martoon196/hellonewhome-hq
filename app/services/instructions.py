@@ -20,6 +20,16 @@ STATUS_LABELS = {"new": "New", "contacted": "Contacted", "appraised": "Appraised
 ORIGIN_LABELS = {"pp": "Property Predator", "kp": "Key Properties", "web": "Website"}
 SERVICE_LINE_LABELS = {"residential": "Residential letting", "hmo": "HMO", "sa": "Short let", "commercial": "Commercial"}
 FURNISHED_LABELS = {"furnished": "Furnished", "unfurnished": "Unfurnished", "part": "Part furnished", "": "Not said"}
+# Hello New Home's own instructions, made by head office from a landlord's enquiry (Admin -> the lead -> Create
+# instruction), carry the external_ref "lead:<id>". The namespace is head office's alone: the Partner API refuses a
+# reference in it and its lookup never answers for one, so a sending system can neither read those instructions nor
+# take a lead's reference before head office does.
+HEAD_OFFICE_REF_PREFIX = "lead:"
+
+
+def head_office_ref(external_ref: str | None) -> bool:
+    """Whether `external_ref` is in head office's own namespace (compared without case or surrounding space)."""
+    return str(external_ref or "").strip().lower().startswith(HEAD_OFFICE_REF_PREFIX)
 
 
 def iso(value: datetime | date | None) -> str | None:

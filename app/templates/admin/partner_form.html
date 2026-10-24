@@ -31,6 +31,7 @@
     {{ f.select("tier", "Tier", [("introducer", "Introducer"), ("area", "Area Partner")], vals.tier) }}
     {{ f.select("status", "Status", [("pending", "Pending"), ("active", "Active"), ("paused", "Paused"), ("left", "Left")], vals.status, hint="Only active partners receive lead emails. Paused and left partners cannot log in.") }}
     {{ f.text("units_managed", "Units managed", vals.units_managed, type="number", attrs='min="0" step="1"', hint="Shown on their dashboard as properties managed from their instructions.") }}
+    {{ f.text("referral_code", "Referral code", vals.referral_code, attrs='maxlength="20" autocapitalize="characters" spellcheck="false"', hint=("Letters, digits and hyphens, 3 to 20. ?ref=" ~ (vals.referral_code or "CODE") ~ " on any page of the site credits them for 90 days. Changing it stops every link already shared from crediting them; the old code stays theirs and is never given to another partner.") if partner else "Leave blank and a code is made when you save; or type one (letters, digits and hyphens, 3 to 20).") }}
     {{ f.checkbox("commercial_enabled", "Can take commercial instructions", vals.commercial_enabled, hint="Until ticked, a commercial appraisal or a commercial property in this partner's area goes to head office and does not appear in their portal.") }}
     <input type="hidden" name="services_form" value="1">
     {% for name, label, hint in service_fields %}{{ f.checkbox(name, label, vals[name], hint=hint) }}
@@ -91,6 +92,19 @@
 </section>
 
 {% if partner %}
+<section class="panel login-box" id="referral-link">
+  <h2>Referral link</h2>
+  {% if partner.referral_code %}
+  <div class="field">
+    <label for="partner-ref-link">Their link</label>
+    <input id="partner-ref-link" type="text" value="{{ base_url }}/?ref={{ partner.referral_code }}" readonly>
+  </div>
+  <div class="row-actions mt-1"><button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="#partner-ref-link">Copy</button>
+    <a class="btn btn-ghost btn-sm" href="/admin/referrals?partner={{ partner.id }}">Their referrals</a></div>
+  <p class="help mt-1">Enquiries through this link are credited to {{ partner.display_first or partner.name }} while they are active. They see it, and the status of their introductions, in their portal under Introductions.</p>
+  {% else %}<p class="muted">No referral code yet.</p>{% endif %}
+</section>
+
 <section class="panel login-box">
   <h2>Franchise</h2>
   <dl class="kv">

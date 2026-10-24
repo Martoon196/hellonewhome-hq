@@ -53,6 +53,15 @@
       </select>
     </div>
     <div class="field">
+      <label for="referrer">Referrer</label>
+      <select id="referrer" name="referrer">
+        <option value="">Anyone or nobody</option>
+        <option value="any"{% if filters.referrer == "any" %} selected{% endif %}>Referred by a partner</option>
+        <option value="none"{% if filters.referrer == "none" %} selected{% endif %}>Not referred</option>
+        {% for p in referrers %}<option value="{{ p.id }}"{% if filters.referrer == p.id|string %} selected{% endif %}>{{ p.name }} ({{ p.referral_code }})</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
       <label for="q">Search</label>
       <input id="q" name="q" type="search" value="{{ filters.q }}" placeholder="Reference, landlord, address or postcode">
     </div>
@@ -66,12 +75,12 @@
 <section class="panel mt-2">
   <div class="panel-head">
     <h2>{{ total }} instruction{{ "s" if total != 1 else "" }}{% if qs %} matching{% endif %}</h2>
-    <span class="help">Newest first, {{ page_size }} a page.</span>
+    <span class="help">Newest first, {{ page_size }} a page. Referrer is the partner who introduced the property; <a href="/admin/referrals">Referrals</a> counts them by month.</span>
   </div>
   {% if rows %}
   <div class="table-scroll">
   <table class="data">
-    <thead><tr><th>Ref</th><th>When</th><th>Landlord</th><th>Property</th><th>From</th><th>Area</th><th>Partner</th><th>Status</th><th>Ordris</th></tr></thead>
+    <thead><tr><th>Ref</th><th>When</th><th>Landlord</th><th>Property</th><th>From</th><th>Area</th><th>Partner</th><th>Referrer</th><th>Status</th><th>Ordris</th></tr></thead>
     <tbody>
     {% for i in rows %}
     <tr>
@@ -82,6 +91,7 @@
       <td>{{ origin_labels.get(i.origin_system, i.origin_system) }}</td>
       <td>{% if i.area %}{{ i.area.name }}{% else %}<span class="muted">Not covered</span>{% endif %}</td>
       <td>{% if i.partner %}{{ i.partner.name }}{% elif i.area and i.area.is_hq %}Head office{% else %}<span class="muted">-</span>{% endif %}</td>
+      <td>{% if i.referrer %}<a href="/admin/partners/{{ i.referrer.id }}">{{ i.referrer.name }}</a>{% else %}{% set match = introducer_matches.get((i.introducer_person_key or "").lower()) %}{% if match %}<span class="small muted" title="The introducer email is this partner's but was not credited (not verified by the sender, or cleared by head office)">{{ match.name }}? (not credited)</span>{% else %}<span class="muted">-</span>{% endif %}{% endif %}</td>
       <td><span class="status status-{{ i.status }}">{{ i.status }}</span></td>
       <td>{% if i.sent_to_ordris %}<span class="status status-sent">sent</span>{% elif i.status in ("instructed", "let") %}<span class="status status-failed">not sent</span>{% else %}<span class="muted">-</span>{% endif %}</td>
     </tr>
