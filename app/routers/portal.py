@@ -26,7 +26,7 @@ from .. import config
 from ..auth import (PARTNER_PAUSED_MESSAGE, audit, check_origin, clear_session, current_user, hash_password,
                     login_allowed, partner_blocked, require_partner, safe_next, set_session, throttle_hit, touch_login,
                     verify_password)
-from ..db import get_db
+from ..db import get_db, session_or_new
 from ..models import Announcement, Area, Instruction, Lead, Partner, Resource, User
 from ..services import content, instructions, kit, ordris_sync, referrals, routing, settings, vat
 from ..services.postcodes import normalise as normalise_postcode
@@ -50,10 +50,10 @@ KIT_TABS = [("flyers", "Flyers"), ("fb", "Facebook posts"), ("graphics", "Graphi
 
 def render_portal(request: Request, template: str, ctx: dict, status_code: int = 200) -> HTMLResponse:
     from ..main import templates
-    db = ctx.pop("db", None) or next(get_db())
-    base = {"request": request, "s": settings.get_all(db), "section": ctx.get("section", "")}
-    base.update(ctx)
-    return templates.TemplateResponse(request, template, base, status_code=status_code)
+    with session_or_new(ctx.pop("db", None)) as db:
+        base = {"request": request, "s": settings.get_all(db), "section": ctx.get("section", "")}
+        base.update(ctx)
+        return templates.TemplateResponse(request, template, base, status_code=status_code)
 
 
 def partner_areas(db: Session, user: User) -> list[Area]:
