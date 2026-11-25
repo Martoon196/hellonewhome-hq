@@ -133,8 +133,12 @@ async def http_error(request: Request, exc: StarletteHTTPException):
         body = {"ok": False, **exc.detail} if isinstance(exc.detail, dict) else {"ok": False, "error": exc.detail}
         return JSONResponse(body, status_code=exc.status_code, headers=exc.headers)
     if exc.status_code == 404:
+        # The 404 page reads the settings and the area list from the database. This handler runs on the event
+        # loop, so the (blocking) database work goes to the thread pool: run inline, one slow connection (a Neon
+        # cold start, a busy pool) froze every request, /healthz included, and Render restarted the instance.
+        from starlette.concurrency import run_in_threadpool
         from .routers.public import render_public
-        return render_public(request, "public/404.html", {"title": "Page not found"}, status_code=404)
+        return await run_in_threadpool(render_public, request, "public/404.html", {"title": "Page not found"}, 404)
     return HTMLResponse(f"<h1>{exc.status_code}</h1><p>{exc.detail}</p>", status_code=exc.status_code)
 
 

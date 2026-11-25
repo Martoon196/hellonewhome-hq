@@ -20,7 +20,7 @@ Who does what: **Martin** does everything in the Neon console and the Render das
 1. Neon console → the project → Dashboard → Connect (or "Connection details").
 2. Neon shows a **pooled** string (host contains `-pooler`) and a **direct** string (same host without `-pooler`). Use the toggle to see each. Both start `postgresql://` and end `?sslmode=require` (newer consoles add `&channel_binding=require`, which is fine).
 3. Copy both into your password manager under "Hello New Home Neon", labelled pooled and direct. They contain the database password; treat them as such.
-4. Which one is used where: the **direct** string is used for the copy, for backups, and for `DATABASE_URL` in Render. The pooled string is kept for the day the app runs more than one instance; the HQ app is one process with its own small connection pool and does not need the pooler.
+4. Which one is used where: the **direct** string is used for the copy and for backups. `DATABASE_URL` in Render was the direct string at the cutover; since 25 November 2026 it should be the **pooled** one (see 10.3). The app switches psycopg's prepared statements off by itself when the host contains `-pooler`, which PgBouncer's transaction mode needs.
 
 ## 3. Deploy the code that knows about Postgres, still on SQLite (Claude, then Martin, 10 minutes)
 
@@ -133,7 +133,13 @@ The Oregon service is still running on the SQLite file, which was never modified
 
 1. Render → old service → Settings → Suspend, the day after the move once section 8 is done. Keep it suspended for two weeks (a suspended service is not billed for compute; the disk is [VERIFY on the invoice]). Then Delete it. Its disk goes with it, so the SQLite file is gone at that point; if you want a keepsake, first `scp <oregon ssh target>:/var/data/db/hq.db ./hq-oregon-final.db` from the office machine.
 2. Render → Blueprints: after the deletion the blueprint lists only `hellonewhome-hq-eu`, which matches the file. Turn Auto-Sync back on.
-3. Neon console → the project → Settings → Compute: leave scale-to-zero on. The first request after an idle spell takes about half a second longer while the compute wakes, which is fine for this site; the health check does not touch the database, so Render never sees the wake-up as a failure.
+3. Neon console → the project → Settings → Compute: leave scale-to-zero on, at 5 minutes. The first request after an idle spell takes about half a second longer while the compute wakes, which is fine for this site; the health check does not touch the database, so Render never sees the wake-up as a failure.
+
+   Revised 25 November 2026, after the compute ran without a break from 14 November: three things now let it sleep and wake safely.
+   - `/sitemap.xml` is kept in memory for an hour (or until the next commit). An outside monitor has fetched it every five minutes since 14 November, exactly Neon's idle period, and every fetch was a query, so the compute never reached five idle minutes.
+   - Pages that render without a session handed to them (the 404 page above all) now close their own session. They used to keep their connection until the garbage collector freed it, so a scanner's burst of 404s emptied the 10-connection pool. The 404 handler also ran its database work on the event loop, so `/healthz` stalled behind it, Render's 5-second health check failed and the instance was restarted, two or three times a day.
+   - A Postgres connection now has a 10-second connect timeout and up to three attempts (0.5 s and 2 s apart), so a request that arrives while the compute is waking waits for it instead of failing.
+   - In Render → `hellonewhome-hq-eu` → Environment, set `DATABASE_URL` to the **pooled** string (host with `-pooler`, still `?sslmode=require`). Copy it from the Neon console's Connect dialog with "Connection pooling" switched on; never paste it anywhere else. Saving it redeploys the service.
 4. The Frankfurt service's `.onrender.com` name is new; nothing links to the old one, but the `LAUNCH-STEPS.md` example addresses are now historical.
 
 ## 11. Weekly backup and a restore drill (Martin, 10 minutes a week)

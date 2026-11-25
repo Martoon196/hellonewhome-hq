@@ -4,16 +4,18 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from markupsafe import Markup, escape
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from .. import config
 from ..auth import check_origin, client_ip, require_partner, throttle_check, throttle_hit
-from ..db import get_db
+from ..db import SessionLocal, get_db, session_or_new
 from ..models import Area, Lead, Resource, User
 from ..services import content, kit, mail, ordris_listings, referrals, routing, settings, vat
 from ..services.postcodes import extract_postcode, locate
@@ -119,8 +121,12 @@ def public_areas(db: Session) -> list[Area]:
 
 
 def render_public(request: Request, template: str, ctx: dict, status_code: int = 200) -> HTMLResponse:
+    with session_or_new(ctx.pop("db", None)) as db:
+        return _render_public(request, db, template, ctx, status_code)
+
+
+def _render_public(request: Request, db: Session, template: str, ctx: dict, status_code: int) -> HTMLResponse:
     from ..main import templates
-    db = ctx.pop("db", None) or next(get_db())
     base = {
         "request": request,
         "s": settings.get_all(db),
@@ -662,8 +668,16 @@ def resource_file(resource_id: int, db: Session = Depends(get_db), user: User = 
     return FileResponse(path, filename=original or path.name, headers={"Cache-Control": "private, max-age=0"})
 
 
-@router.get("/sitemap.xml", include_in_schema=False)
-def sitemap(db: Session = Depends(get_db)):
+# The sitemap is built from the area list, so every fetch was a database query. Since 14 November 2026 an outside
+# monitor has fetched it every five minutes, the same length as Neon's scale-to-zero idle period, so the compute never
+# went to sleep. The XML is kept in the process for SITEMAP_TTL_SECONDS: a monitor or crawler polling it no longer
+# touches Postgres, and an area added or hidden in the admin reaches the sitemap within the hour (sitemaps are read
+# by search engines hours or days apart, so an hour is invisible to them).
+SITEMAP_TTL_SECONDS = 3600
+_sitemap_cache: dict = {"xml": "", "at": 0.0}
+
+
+def _sitemap_xml(db: Session) -> str:
     from ..main import PAGES
     urls = [f"{config.BASE_URL}{'' if p == '/' else p}" for p in PAGES] + [f"{config.BASE_URL}/commercial"]
     for a in public_areas(db):
@@ -672,8 +686,26 @@ def sitemap(db: Session = Depends(get_db)):
                  + [f"{config.BASE_URL}/areas/{a.slug}/{path}" for path, page, _ in AREA_SERVICE_PAGES if live[page]]
                  + [f"{config.BASE_URL}/areas/{a.slug}/commercial"])
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    xml += "".join(f"  <url><loc>{escape(u)}</loc></url>\n" for u in urls) + "</urlset>\n"
-    return Response(xml, media_type="application/xml")
+    return xml + "".join(f"  <url><loc>{escape(u)}</loc></url>\n" for u in urls) + "</urlset>\n"
+
+
+def clear_sitemap_cache(*_args) -> None:
+    _sitemap_cache.update(xml="", at=0.0)
+
+
+# Any committed write (an area, partner or setting saved in the admin, but also a lead or a login) drops the cached
+# sitemap, so an admin change shows at once; a crawler or monitor only ever reads, so it keeps hitting the cache.
+event.listen(SessionLocal, "after_commit", clear_sitemap_cache)
+
+
+@router.get("/sitemap.xml", include_in_schema=False)
+def sitemap():
+    now = time.monotonic()
+    if not _sitemap_cache["xml"] or now - _sitemap_cache["at"] >= SITEMAP_TTL_SECONDS:
+        with session_or_new(None) as db:
+            _sitemap_cache.update(xml=_sitemap_xml(db), at=now)
+    return Response(_sitemap_cache["xml"], media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/robots.txt", include_in_schema=False)
